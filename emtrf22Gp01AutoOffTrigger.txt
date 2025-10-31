@@ -1,0 +1,11 @@
+autoOffTrigger = system.tag.readBlocking(["gpm/preMilling1/emtrf22Gp01AutoOffTrigger"])[0].value
+ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+if autoOffTrigger:
+	if ipCli == "10.59.108.104" or  ipCli == "10.59.108.105":	
+		try:
+			message = u"<html><center>Atención! Motores encendidos sin uso en Trf22Gp01. Desea apagarlos?"
+			tagPath = "gpm/preMilling1/emTrf22Gp01AutoOffConf"
+			window = system.nav.openWindowInstance('common/puMessageAlertAutoOff', {'message' : message, 'tagPath' : tagPath})
+			system.nav.centerWindow(window)
+		except:
+			pass

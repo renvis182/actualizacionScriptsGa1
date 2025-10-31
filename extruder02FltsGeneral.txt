@@ -1,0 +1,25 @@
+#CAPTURO LA IP DEL SISTEMA
+ipSys = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+#DEFINO IP DE CLINTE DE EXTRUSOR
+ipCli = '10.59.108.104'
+#DEFINO MONITOR DE VISUALIZACION DE ACUERDO AL CLIENTE DE EXTRUSION
+dskp = 'Monitor 2'
+#PATH DE POPUP
+popUp  = 'common/puAlarmasBalizas'
+#PATH DE PAREMETROS PARA POPUP
+param1 = 'extrusion/productionLine1/extruder2/extruder02Flts'
+param2 = 'extrusion/productionLine1/extruder2/hmiExtruder02FltsClose'
+param3 = 'extrusion/productionLine1/extruder2/hmiExtruder02FltsReset'
+param4 = 'Extruder 2'
+#PATH DE PARAMETRO DE BIT DE FALLO GENERAL
+param5 = 'extrusion/productionLine1/extruder2/extruder02FltsGeneral'
+flt = system.tag.readBlocking([param5])[0].value
+if flt == 1 :
+	if ipSys == ipCli :
+		invokeDesktop = dskp
+		window = system.nav.desktop(invokeDesktop).openWindowInstance(popUp, 
+																			{'extFlts' :param1,
+																			 'close' :param2,
+																			 'reset' :param3,
+																			 'extName' :param4})
+		system.nav.desktop(invokeDesktop).centerWindow(window)

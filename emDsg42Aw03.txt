@@ -1,0 +1,15 @@
+flt = system.tag.readBlocking(["gpm/microDosing/emDsg42Aw03/flt"])[0].value
+ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+
+if flt == 1 :
+	if ipCli == "10.59.108.103": #  or ipCli == "10.59.118.98":
+		headers = ["Value","Label"]
+		data = []
+		data.append([1,"24.CM05"])
+		data.append([2,"24.CM06"])
+		data.append([3,"24.CM07"])
+		data.append([4,"24.CM08"])
+	
+		dataset = system.dataset.toDataSet(headers, data)
+		window = system.nav.openWindowInstance('common/puMeDosingRetry', {'emDsg' : 'gpm/microDosing/emDsg42Aw03', 'differentSource' : dataset, 'sameSource' : dataset })
+		system.nav.centerWindow(window)

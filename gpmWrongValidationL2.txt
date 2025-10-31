@@ -1,0 +1,28 @@
+if  newValue.value > 0:
+	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+	if ipCli == "10.59.108.105":
+		gpmWrongValidationL2 = system.tag.readBlocking(["process/dosing/ordersAdmin/L2/gpmWrongValidationL2"])[0].value
+		#Monitor en el que se encuentran las ventanas requeridas
+		macrosDesktop = system.tag.readBlocking(["[Client]general/macrosMonitor"])[0].value
+		gpmL2Desktop = system.tag.readBlocking(["[Client]general/gpmMonitor"])[0].value
+		gpmOrdersDesktop = system.tag.readBlocking(["[Client]general/gpmOrderMonitor"])[0].value
+		invokeDesktop = "primary"
+		#Desktop en el que se va a abrir el popup, por prioridad
+		if gpmOrdersDesktop == "primary" or gpmOrdersDesktop == "Monitor 2" or gpmOrdersDesktop == "Monitor 3" or gpmOrdersDesktop == "Monitor 4":
+			invokeDesktop = gpmOrdersDesktop
+		elif gpmL2Desktop == "primary" or gpmL2Desktop == "Monitor 2" or gpmL2Desktop == "Monitor 3" or gpmL2Desktop == "Monitor 4":
+			invokeDesktop = gpmL2Desktop
+		elif macrosDesktop == "primary" or macrosDesktop == "Monitor 2" or macrosDesktop == "Monitor 3" or macrosDesktop == "Monitor 4":
+			invokeDesktop = macrosDesktop
+		#Apertura de popup
+		if gpmWrongValidationL1 == 4:
+			message = u"<html><center>La mezcladora de la línea del batch a ejecutar se encuentra en falla. <br>Por favor seleccione una de las siguientes opciones para MIXING02:"
+		if gpmWrongValidationL2 == 1:
+			message = u"<html><center>Los molinos de la línea del batch a ejecutar se encuentran inactivos. <br>Por favor seleccione una de las siguientes opciones para MIXING02:"
+		elif gpmWrongValidationL2 == 2:
+			message = u"<html><center>Los pulverizadores de la línea del batch a ejecutar se encuentran inactivos. <br>Por favor seleccione una de las siguientes opciones para MIXING02:"	
+		elif gpmWrongValidationL2 == 3:
+			message = u"<html><center>Los molinos y pulverizadores de la línea del batch a ejecutar se encuentran inactivos. <br>Por favor seleccione una de las siguientes opciones para MIXING02:"
+		window = system.nav.desktop(invokeDesktop).openWindow('common/puValidationPr', {'message' : message, 'mixingLine' : 'MIXING02'})
+		system.nav.desktop(invokeDesktop).centerWindow(window)
+		system.tag.writeAsync(["process/dosing/ordersAdmin/L2/gpmWrongValidationL2"],[0])

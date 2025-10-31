@@ -1,0 +1,14 @@
+flt = system.tag.readBlocking(["[default]extrusion/productionLine10/extruder1/extruder01FltsGeneral"])[0].value
+ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+
+if flt == 1 :
+	if ipCli == "10.59.118.103" : #ip del cliente
+		invokeDesktop = 'Monitor 2'
+		window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puAlarmasBalizas', {'extFlts' : 'extrusion/productionLine10/extruder1/extruder01Flts', 'close' : 'extrusion/productionLine10/extruder1/hmiExtruder01FltsClose', 'reset' : 'extrusion/productionLine10/extruder1/hmiExtruder01FltsReset', 'extName' : 'Extruder 10'})
+		system.nav.desktop(invokeDesktop).centerWindow(window)
+		
+		#Codigo en Caso de querer levatar el banner de alarmas cuando la pantalla de la extrusora este activada
+		#currentWindow = system.nav.getCurrentWindow()
+		#window = system.nav.openWindowInstance('common/puAlarmasBalizas', {'extFlts' : 'extrusion/productionLine11/extruder1/extruder01Flts', 'close' : 'extrusion/productionLine11/extruder1/hmiExtruder01FltsClose', 'reset' : 'extrusion/productionLine11/extruder1/hmiExtruder01FltsReset' })
+		#system.nav.centerWindow(window)
+		

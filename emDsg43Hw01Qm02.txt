@@ -1,0 +1,12 @@
+flt = system.tag.readBlocking(["gpm/secondMix/emDsg43Hw01Qm02/flt"])[0].value
+ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+
+if flt == 1 :
+	if ipCli == "10.59.108.103":
+		headers = ["Value","Label"]
+		data = []
+		data.append([1,"90.CM01"])
+	
+		dataset = system.dataset.toDataSet(headers, data)
+		window = system.nav.openWindowInstance('common/puMeDosingRetry', {'emDsg' : 'gpm/secondMix/emDsg43Hw01Qm02', 'differentSource' : dataset, 'sameSource' : dataset })
+		system.nav.centerWindow(window)

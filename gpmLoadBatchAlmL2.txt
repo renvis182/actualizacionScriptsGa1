@@ -1,0 +1,21 @@
+#Alarma de tiempo para carga de batches en modo manual y automático
+if  newValue.value == 1:
+	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+	if ipCli == "10.59.108.105":
+		#Monitor en el que se encuentran las ventanas requeridas
+		macrosDesktop = system.tag.readBlocking(["[Client]general/macrosMonitor"])[0].value
+		gpmL2Desktop = system.tag.readBlocking(["[Client]general/gpmMonitor"])[0].value
+		gpmOrdersDesktop = system.tag.readBlocking(["[Client]general/gpmOrderMonitor"])[0].value
+		invokeDesktop = "primary"
+		#Desktop en el que se va a abrir el popup, por prioridad
+		if gpmOrdersDesktop == "primary" or gpmOrdersDesktop == "Monitor 2" or gpmOrdersDesktop == "Monitor 3" or gpmOrdersDesktop == "Monitor 4":
+			invokeDesktop = gpmOrdersDesktop
+		elif gpmL2Desktop == "primary" or gpmL2Desktop == "Monitor 2" or gpmL2Desktop == "Monitor 3" or gpmL2Desktop == "Monitor 4":
+			invokeDesktop = gpmL2Desktop
+		elif macrosDesktop == "primary" or macrosDesktop == "Monitor 2" or macrosDesktop == "Monitor 3" or macrosDesktop == "Monitor 4":
+			invokeDesktop = macrosDesktop
+		#Apertura de popup
+		message = u"<html><center>Atención! El buffer de ejecución de batches de MIXING02 se encuentra vacío.<br>Agregue batches o cambie a modo automático"
+		rstTagPath = "process/dosing/ordersAdmin/L2/gpmLoadBatchAlmRstL2"
+		window = system.nav.desktop(invokeDesktop).openWindow('common/puMessageAlert', {'message' : message, 'tagPath' : rstTagPath})
+		system.nav.desktop(invokeDesktop).centerWindow(window)
