@@ -14,4 +14,5 @@ if flt == 1:
 	
 		dataset = system.dataset.toDataSet(headers, data)
 		window = system.nav.openWindowInstance('common/puMeDosingRetry', {'emDsg' : 'gpm/macroDosing/emDsg41Aw07', 'differentSource' : dataset, 'sameSource' : dataset })
+
 		system.nav.centerWindow(window)
