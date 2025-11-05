@@ -1,25 +1,36 @@
-#Alarma por nivel bajo en tanque Mixer de extrusoras L1
-if  newValue.value == 1:
-	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
-
-	warnLecitineExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2"])[0].value	
-	warnLecitineExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3"])[0].value	
-					
-	if ipCli == "10.59.108.113" :
-		#Monitor en el que se encuentran las ventanas requeridas
-		extruderL7Desktop = system.tag.readBlocking(["[Client]general/extruderL7MixerMonitor"])[0].value
+	#Alarma por nivel bajo en tanque Mixer de extrusoras L1
+	if  newValue.value == 1:
+		tagPaths = [
+			"[System]Client/Network/IPAddress",
+			"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2",
+			"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3",
+			"[Client]general/extruderL7MixerMonitor"
+		]
+		params = system.tag.readBlocking(tagPaths)
+	
+		#ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+		#warnLecitineExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2"])[0].value	
+		#warnLecitineExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3"])[0].value	
+		ipCli = params[0].value
+		warnLecitineExt01Mod2 = params[1].value
+		warnLecitineExt01Mod3 = params[2].value
+		extruderL7Desktop = params[3].value
+	
+		if ipCli == "10.59.108.113" :
+			#Monitor en el que se encuentran las ventanas requeridas
+			#extruderL7Desktop = system.tag.readBlocking(["[Client]general/extruderL7MixerMonitor"])[0].value
 		
-		invokeDesktop = "primary"
+			invokeDesktop = "primary"
 		
-		#Desktop en el que se va a abrir el popup, por prioridad
-		if extruderL7Desktop == "primary" or extruderL1Desktop == "Monitor 2" or extruderL1Desktop == "Monitor 3" or extruderL1Desktop == "Monitor 4":
-			invokeDesktop = extruderL1Desktop
-		#Apertura de popup
-			if warnLecitineExt01Mod2 == 1:
-				message06 = u"<html><center>Atención! Flujo de Lecitina en Extrusora 7 está fuera de Rango en Operación MOD2"
-				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message06})
-				system.nav.desktop(invokeDesktop).centerWindow(window)
-			elif warnLecitineExt01Mod3 == 1:
-				message07 = u"<html><center>Atención! Flujo de Lecitina en Extrusora 7 está fuera de Rango en Operación MOD3"
-				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message07})
-				system.nav.desktop(invokeDesktop).centerWindow(window)
+			#Desktop en el que se va a abrir el popup, por prioridad
+			if extruderL7Desktop == "primary" or extruderL1Desktop == "Monitor 2" or extruderL1Desktop == "Monitor 3" or extruderL1Desktop == "Monitor 4":
+				invokeDesktop = extruderL1Desktop
+			#Apertura de popup
+				if warnLecitineExt01Mod2 == 1:
+					message06 = u"<html><center>Atención! Flujo de Lecitina en Extrusora 7 está fuera de Rango en Operación MOD2"
+					window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message06})
+					system.nav.desktop(invokeDesktop).centerWindow(window)
+				elif warnLecitineExt01Mod3 == 1:
+					message07 = u"<html><center>Atención! Flujo de Lecitina en Extrusora 7 está fuera de Rango en Operación MOD3"
+					window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message07})
+					system.nav.desktop(invokeDesktop).centerWindow(window)
