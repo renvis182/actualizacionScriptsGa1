@@ -1,7 +1,14 @@
 if newValue.value == 2:	
 	#COATING L1
-	database = system.tag.readBlocking(["process/general/database"])[0].value #Cargamos la base de datos
-	moId1 =system.tag.readBlocking(["process/extrusion/flagCtg/flagStartCtgL1/codOrder"])[0].value #Numero de la orden a ejecutarse
+	#database = system.tag.readBlocking(["process/general/database"])[0].value #Cargamos la base de datos
+	#moId1 =system.tag.readBlocking(["process/extrusion/flagCtg/flagStartCtgL1/codOrder"])[0].value #Numero de la orden a ejecutarse
+	tagPaths = [
+		"process/general/database",
+		"process/extrusion/flagCtg/flagStartCtgL1/codOrder"
+	]
+	params = system.tag.readBlocking(tagPaths)
+	database = params[0].value
+	moId1 = params[1].value
 	fishOil = ''
 	if moId1 != None :
 		#Traemos informacion de la receta de la orden

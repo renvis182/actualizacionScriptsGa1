@@ -1,16 +1,29 @@
 #Alarma por nivel bajo en tanque Mixer de extrusoras L1
 if  newValue.value == 1:
-	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+	tagPaths = [
+		"[System]Client/Network/IPAddress",
+		"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2",
+		"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3",
+		"[Client]general/extruderL7MixerMonitor",
+		"[Client]general/extruderL1MixerMonitor"
+	]
+	params = system.tag.readBlocking(tagPaths)
 
-	warnLecitineExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2"])[0].value	
-	warnLecitineExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3"])[0].value	
-					
+	#ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+	#warnLecitineExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2"])[0].value	
+	#warnLecitineExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3"])[0].value	
+	ipCli = params[0].value
+	warnLecitineExt01Mod2 = params[1].value
+	warnLecitineExt01Mod3 = params[2].value
+	extruderL7Desktop = params[3].value
+	extruderL1Desktop = params[4].value
+
 	if ipCli == "10.59.108.113" :
 		#Monitor en el que se encuentran las ventanas requeridas
-		extruderL7Desktop = system.tag.readBlocking(["[Client]general/extruderL7MixerMonitor"])[0].value
-		
+		#extruderL7Desktop = system.tag.readBlocking(["[Client]general/extruderL7MixerMonitor"])[0].value
+	
 		invokeDesktop = "primary"
-		
+	
 		#Desktop en el que se va a abrir el popup, por prioridad
 		if extruderL7Desktop == "primary" or extruderL1Desktop == "Monitor 2" or extruderL1Desktop == "Monitor 3" or extruderL1Desktop == "Monitor 4":
 			invokeDesktop = extruderL1Desktop
