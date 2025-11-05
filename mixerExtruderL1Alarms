@@ -1,41 +1,58 @@
-#Alarma por nivel bajo en tanque Mixer de extrusoras L1
-if  newValue.value == 1:
-	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
-	warnLowLevelL1 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warningMixerLowLevel"])[0].value
+	#Alarma por nivel bajo en tanque Mixer de extrusoras L1
+	if  newValue.value == 1:
+		tagPaths = [
+			"[System]Client/Network/IPAddress",
+			"extrusion/productionLine1/mixerContingency/warningMixerLowLevel",
+			"extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod2",
+			"extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod3",
+			"extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod2",
+			"extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod3",
+			"[Client]general/extruderL1MixerMonitor"
+		]
+		params = system.tag.readBlocking(tagPaths)
 	
-	warnMixerExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod2"])[0].value
-	warnMixerExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod3"])[0].value
-	warnMixerExt02Mod2 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod2"])[0].value
-	warnMixerExt02Mod3 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod3"])[0].value
+		#ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+		#warnLowLevelL1 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warningMixerLowLevel"])[0].value
+		#warnMixerExt01Mod2 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod2"])[0].value
+		#warnMixerExt01Mod3 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt01FlowMod3"])[0].value
+		#warnMixerExt02Mod2 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod2"])[0].value
+		#warnMixerExt02Mod3 = system.tag.readBlocking(["extrusion/productionLine1/mixerContingency/warnMixerExt02FlowMod3"])[0].value
+		ipCli = params[0].value
+		warnLowLevelL1 = params[1].value
+		warnMixerExt01Mod2 = params[2].value
+		warnMixerExt01Mod3 = params[3].value
+		warnMixerExt02Mod2 = params[4].value
+		warnMixerExt02Mod3 = params[5].value
+		extruderL1Desktop = params[6].value
 	
-
-	if ipCli == "10.59.108.104" :
-		#Monitor en el que se encuentran las ventanas requeridas
-		extruderL1Desktop = system.tag.readBlocking(["[Client]general/extruderL1MixerMonitor"])[0].value
+	
+		if ipCli == "10.59.108.104" :
+			#Monitor en el que se encuentran las ventanas requeridas
+			#extruderL1Desktop = system.tag.readBlocking(["[Client]general/extruderL1MixerMonitor"])[0].value
 		
-		invokeDesktop = "primary"
+			invokeDesktop = "primary"
 		
-		#Desktop en el que se va a abrir el popup, por prioridad
-		if extruderL1Desktop == "primary" or extruderL1Desktop == "Monitor 2" or extruderL1Desktop == "Monitor 3" or extruderL1Desktop == "Monitor 4":
-			invokeDesktop = extruderL1Desktop
-		#Apertura de popup
-			if warnLowLevelL1 == 1:
-				message01 = u"<html><center>Atención! Nivel Bajo en Tanque Mixer HW09"
-				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message01})
-				system.nav.desktop(invokeDesktop).centerWindow(window)
-			elif warnMixerExt01Mod2 == 1:
-				message02 = u"<html><center>Atención! Flujo de Mixer en Extrusora 1 está fuera de Rango en Operación MOD2"
-				#window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message02})
-				#system.nav.desktop(invokeDesktop).centerWindow(window)
-			elif warnMixerExt01Mod3 == 1:
-				message03 = u"<html><center>Atención! Flujo de Mixer en Extrusora 1 está fuera de Rango en Operación MOD3"
-				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message03})
-				system.nav.desktop(invokeDesktop).centerWindow(window)
-			elif warnMixerExt02Mod2 == 1:
-				message04 = u"<html><center>Atención! Flujo de Mixer en Extrusora 2 está fuera de Rango en Operación MOD2"
-				#window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message04})
-				#system.nav.desktop(invokeDesktop).centerWindow(window)
-			elif warnMixerExt02Mod3 == 1:
-				message05 = u"<html><center>Atención! Flujo de Mixer en Extrusora 2 está fuera de Rango en Operación MOD3"
-				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message05})
-				system.nav.desktop(invokeDesktop).centerWindow(window)
+			#Desktop en el que se va a abrir el popup, por prioridad
+			if extruderL1Desktop == "primary" or extruderL1Desktop == "Monitor 2" or extruderL1Desktop == "Monitor 3" or extruderL1Desktop == "Monitor 4":
+				invokeDesktop = extruderL1Desktop
+			#Apertura de popup
+				if warnLowLevelL1 == 1:
+					message01 = u"<html><center>Atención! Nivel Bajo en Tanque Mixer HW09"
+					window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message01})
+					system.nav.desktop(invokeDesktop).centerWindow(window)
+				elif warnMixerExt01Mod2 == 1:
+					message02 = u"<html><center>Atención! Flujo de Mixer en Extrusora 1 está fuera de Rango en Operación MOD2"
+					#window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message02})
+					#system.nav.desktop(invokeDesktop).centerWindow(window)
+				elif warnMixerExt01Mod3 == 1:
+					message03 = u"<html><center>Atención! Flujo de Mixer en Extrusora 1 está fuera de Rango en Operación MOD3"
+					window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message03})
+					system.nav.desktop(invokeDesktop).centerWindow(window)
+				elif warnMixerExt02Mod2 == 1:
+					message04 = u"<html><center>Atención! Flujo de Mixer en Extrusora 2 está fuera de Rango en Operación MOD2"
+					#window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message04})
+					#system.nav.desktop(invokeDesktop).centerWindow(window)
+				elif warnMixerExt02Mod3 == 1:
+					message05 = u"<html><center>Atención! Flujo de Mixer en Extrusora 2 está fuera de Rango en Operación MOD3"
+					window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelMixer', {'message' : message05})
+					system.nav.desktop(invokeDesktop).centerWindow(window)
