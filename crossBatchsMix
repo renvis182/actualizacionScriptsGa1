@@ -1,0 +1,326 @@
+import system
+if newValue.value == 1:
+    logger = system.util.getLogger("galReportsBatchCross")
+    #logger.info( u""+str( event.tagPath.getItemName() )) #Nombre del item del Tag que cambió
+    #logger.info( u""+str( event.tagPath.getParentPath() )) #Path del Tag
+    parentPath = str(event.tagPath.getParentPath()) #Convert to string
+    parts_parentPath = parentPath.split("/")  # Split by "/"
+    # Now 'parts_parentPath' contains individual substrings: ["[default]gpm", "secondMix", "43GL12QM02"]
+    changeVlvTag = str( parts_parentPath[len(parts_parentPath)-1] ) # Get tag name of valve was changed
+    #logger.info( u""+changeVlvTag)
+
+    #Read tag that contains all the necessary data
+    batchCrossData = system.tag.readBlocking(['[default]reports/batchCrossData'])[0].value #Returns a dictionary
+    #Read "extLine" destination of basics units
+    basicsUnits = batchCrossData['basicUnit']
+    pathExtLineMix1 = basicsUnits[0]["extLine"] #Returns a path
+    pathExtLineMix2 = basicsUnits[1]["extLine"]
+    #With "extLine" you know which route should be active
+    extLineMix1 = system.tag.readBlocking([ pathExtLineMix1 ])[0].value #Returns an integer
+    extLineMix2 = system.tag.readBlocking([ pathExtLineMix2 ])[0].value
+
+    #For test in script console -----------------------------------
+    #pathAux = "[default]gpm/secondMix/43GL12QM02/zso"
+    #changeVlvTag = "44GL12QM05"
+    #extLineMix1 = 7 #For TEST
+    #extLineMix2 = 8	#For TEST
+    #End test ------------------------------------
+
+    routes = batchCrossData['routes'] #Get dictionary array of routes
+    equipment = batchCrossData['equipment'] #Get dictionary array of equipment
+    valves = batchCrossData['valves'] #Get dictionary array of valves
+    #print "Todas las rutas:"
+    #print routes
+    #print "--------------------------------------------------------------------"
+
+    #FUNCTIONS
+    #Check valve and equipment at one step of the route
+    def reviewValveActive(valveTag, machineTag, dest, equipment, valves):
+        import system
+        stOpen = False
+        destE = 0 #Initializing "dest" with 0 is the same as without the attribute
+        if valveTag == "NoneValve":
+            #If it is the case of the passage where there is no valve
+            stOpen = True
+        else:
+            for valve in valves:	
+                valveTagVlv = valve['tagVlv']
+                if valveTagVlv == valveTag:
+                    pathStOpen = valve['stOpen']
+                    stOpen = system.tag.readBlocking([ pathStOpen ])[0].value #Returns a boolean
+                    break
+            
+        #Find the equipment to which the valve belongs
+        foundE = False
+        for machine in equipment:
+            if "valves" in machine:
+                valvesEquip = machine['valves'] #Get array of names of valves connected to the equipment
+                #Check if the valve is on this equipment
+                for vlvName in valvesEquip:
+                    if vlvName == valveTag:
+                        foundE = True
+                        break
+            if foundE:
+                #If I found the valve, then the current equipment is located before to the valve
+                tagEquE = machine['tagEqu'] #Name tag of equipment
+                pathStE = machine['st'] #Path of state of equipment
+                #If the equipment is found, its status is read.
+                stE = system.tag.readBlocking([ pathStE ])[0].value #Returns an int value; 0:Stop 1:Running 4:Fault
+                if dest != 0: 
+                    #If a destination is considered in the analyzed step, I look for the active destination on the computer to compare
+                    if "dest" in machine:
+                        pathDestE = machine['dest']
+                        destE = system.tag.readBlocking([ pathDestE ])[0].value #Returns a int value
+                #print "reviewValveActive: ", valveTag, " stOpen:", stOpen , tagEquE, " Estado equipo (0:Stop 1:Running 4:Fault):", stE, " Dest:", destE
+                break
+
+        if stOpen and foundE and stE == 1:
+            if destE == dest:
+                #If the destination of the step and the current destination of the equipment are the same, it means that the valve was activated automatically.
+                return {'active': True, 'manual': False}
+            else:
+                #If the destination of the step and the current destination of the equipment are different, it means that the valve was activated manually.
+                return {'active': True, 'manual': True}
+        else:
+            return {'active': False, 'manual': False}
+
+    #Report to DB
+    def reportEventDB(route, routesActives, valveName, eventBool):
+        import system
+        #Get data from defined route in control unit
+        mix = route['mix'] #Always equal to mix of "routesActives" because it is analyzed for possible routes by mix
+        line = "L"+str(route['line'])
+        bin = route['bin']
+        #Obtain new route data by valve opening
+        lineEndArrayAux = []
+        lineEnd = ''
+        binEnd = ''
+        for routeA in routesActives:
+            auxL = routeA['line']
+            auxB = routeA['bin']
+            if auxL not in lineEndArrayAux:
+                #If "aux" is not found in the array "lineEndArrayAux" is added to the array
+                lineEndArrayAux.append(auxL)
+                lineEnd = lineEnd + "L" + str(auxL) + " "
+            binEnd = binEnd + auxB + " "
+        binEnd = binEnd.strip() #Delete spaces left and right	
+        lineEnd = lineEnd.strip()
+        #Current date
+        currentDate = system.date.format(system.date.now(), 'yyyy-MM-dd HH:mm:ss')
+        #Event indicates whether the opening was by automatic or manual action
+        if eventBool:
+            event = 'APERTURA MANUAL'
+        else:
+            event = 'CAMBIO DESTINO'
+        #Get data about mix from tags
+        if mix == 1:
+            activeOrder = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/codOrder'])[0].value
+            batchCurrent = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/batchCurrent'])[0].value
+        else: #If is mix 2
+            activeOrder = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/codOrder'])[0].value
+            batchCurrent = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/batchCurrent'])[0].value
+        #Get data about user
+        user = system.tag.readBlocking(['[default]reports/userCrossBatch'])[0].value
+        #user = "User Test" #for TEST
+        #Old
+        #query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        #args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd]
+        #New
+        query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd, mix, valveName]
+        #print str(query)
+        #print str(args)
+        logger = system.util.logger("galReportsBatchCross")
+        logger.info(u''+str(query)+str(args))
+        #stQuery = 1
+        stQuery = system.db.runPrepUpdate(query, args)
+        if stQuery == 0: #If it was not possible to add a new record
+            logger = system.util.logger("galReportsBatchCross")
+            logger.warn(u'No se pudo añadir reporte en la DB '+str(args))
+    #End Functions
+
+    routesMix = []
+    for route in routes:
+        mix = route['mix']
+        extLine = route['extLine']
+        if mix==1 and extLine == extLineMix1:
+            #Encontre ruta definida en unidad basica de Mix 1
+            routesMix.append(route)
+        if mix==2 and extLine == extLineMix2:
+            #Encontre ruta definida en unidad basica de Mix 2
+            routesMix.append(route)
+    #print "Rutas de los mix:"
+    #print routesMix
+    #print "--------------------------------------------------------------------"
+    stateRoute = False
+    for route in routesMix:
+        steps = route['steps'] #Get object array of steps
+        #Revisar cada paso para buscar valvula
+        for step in steps:
+            tagVlv = step['tagVlv'] 
+            #Defino si la valvula esta en el paso
+            if tagVlv == changeVlvTag:
+                #Valvula activada si pertenece a la ruta definida en el Mix, no se alteró el proceso
+                stateRoute = True
+                #Si no la encuentro stateRoute=False
+    #print "La valvula de Tag Change se encuentra en rutas definidas en los mix :"
+    #print stateRoute
+    #print "--------------------------------------------------------------------"
+
+    #If the activated valve was not found in the routes defined in the base unit, I search for the affected route or routes
+    if not stateRoute:
+        logger.info( u'Válvula que accionó el "tag change:'+changeVlvTag)
+        #Filter only the last valves, before the bins
+        lastStepValves = []
+        for valve in valves:
+            if "lastVlv" in valve:
+                if valve['lastVlv'] == 1:
+                    lastStepValves.append(valve)
+        #print "Valvulas finales: "
+        #print lastStepValves
+        #print "--------------------------------------------------------------------"
+        #If the valve is not found in the current mix routes
+        #Product could be sent to another bin, but it only affects if it contaminates another line.
+        for route in routesMix:
+            lastStepValvesActives = [] #Object array of last step valves actives
+            routesModifiedActives = [] #Object array of routes actives differents to Mix
+            mix = route['mix']
+            line = route['line']
+            bin = route['bin']
+            steps = route['steps'] #Get object array of steps
+            lastStep = steps[ len(steps)-1 ] #Get the last step
+            tagVlv = lastStep["tagVlv"] #Get the name of the valve from the last step
+            #print "Mix ", mix, " Valvulas final de la ruta:", tagVlv
+            #print "--------------------------------------------------------------------"
+            #Find any other active final valve other than the one in the route
+            for valve in lastStepValves:
+                valveTagVlv = valve['tagVlv']
+                pathStOpen = valve['stOpen']
+                stOpen = system.tag.readBlocking([ pathStOpen ])[0].value #Returns boolean value
+                #Find the equipment to which the valve belongs
+                foundE = False
+                for machine in equipment:
+                    if "valves" in machine:
+                        valvesEquip = machine['valves'] #Get array of names of valves connected to the equipment
+                        #Check if the valve is on this equipment
+                        for vlvName in valvesEquip:
+                            if vlvName == valveTagVlv:
+                                foundE = True
+                                break
+                    if foundE:
+                        #If the valve is found, then the current equipment is located before the valve
+                        tagEquE = machine['tagEqu'] #Name of tag of the equipment
+                        pathStE = machine['st'] #Path os state of the equipment
+                        #If the equipment is found, its status is read.
+                        stE = system.tag.readBlocking([ pathStE ])[0].value #Returns an int value; 0:Stop 1:Running 4:Fault
+                        #print "Relacion valvula-equipo: ", valveTagVlv, "Open:", stOpen, tagEquE, "Estado (0:Stop 1:Running 4:Fault):", stE
+                        break
+
+                if tagVlv != valveTagVlv and stOpen and foundE and stE == 1:
+                    #Active valve: Only if it is different from the one on the route, it is open and the equipment before it is on
+                    lastStepValvesActives.append(valve)
+            #print "--------------------------------------------------------------------"
+            #print "Mix ", mix, " Valvulas finales activas, no se considera a ", tagVlv
+            #print lastStepValvesActives
+            #print "--------------------------------------------------------------------"
+            #Find paths leading to active valves for the current mix (mix data is located on the current path analyzed)
+            modifiedRoutes = [] #Possible routes running
+            for valve in lastStepValvesActives:
+                valveTagVlv = valve['tagVlv']
+                for route1 in routes:
+                    mix1 = route1['mix']
+                    steps1 = route1['steps'] #Get object array of steps
+                    lastStep1 = steps1[ len(steps1)-1 ] #Get the last step
+                    tagVlv1 = lastStep1["tagVlv"] #Get valve name from last step
+                    if mix1 == mix and valveTagVlv == tagVlv1:
+                        modifiedRoutes.append(route1)		
+            #print "Mix ", mix, " Posibles rutas: "
+            #print modifiedRoutes
+            #print "--------------------------------------------------------------------"
+            #Of the possible modified routes that are being fulfilled, only those that contain the valve detected in the Tag Change event are of interest.
+            routeManual = False #Valve (Tag Change) activated automatically
+            for route2 in modifiedRoutes:
+                reviewRoute = False
+                steps2 = route2['steps'] #Get object array of steps
+                mix2 = route2['mix'] #Line of the route
+                line2 = route2['line'] #Line of the route
+                extLine2 = route2['extLine']
+                bin2 = route2['bin']
+                for step2 in steps2:
+                    tagEqu2 = step2["tagEqu"]
+                    tagVlv2 = step2["tagVlv"]
+                    if tagVlv2 == changeVlvTag and line2 != line:
+                        #If the valve that activated the Tag Change is located within the route, the entire route is reviewed, and
+                        # the route line is different from the one defined in the basic unit of the mix.
+                        reviewRoute = True
+                #Review route
+                if reviewRoute:
+                    #print "Revisar ruta que contiene a válvula:", changeVlvTag, ", y su linea es diferente a la del Mix, linea:", line
+                    #print route2
+                    #print "--------------------------------------------------------------------"
+                    routeActive = True
+                    routeActiveAux = False
+                    for step2 in steps2:
+                        tagEqu2 = step2["tagEqu"]
+                        tagVlv2 = step2["tagVlv"]
+                        if "dest" in step2: #If the destination "dest" is defined in the step
+                            dest2 = step2["dest"]
+                        else:
+                            dest2 = 0
+                        reviewValveAct = reviewValveActive(tagVlv2, tagEqu2, dest2, equipment, valves)
+                        routeActiveAux = reviewValveAct["active"]
+                        if tagVlv2 == changeVlvTag: #If it is the valve that activated the Tag Change, I know if it was activated manually.
+                            routeManual = reviewValveAct["manual"] #Pass boolean value if the valve was activated manually
+                        if not routeActiveAux:
+                            routeActive = False
+                            #print "No cumple paso activo --> Válvula:", tagVlv2," Equipo:",tagEqu2," Destino:", dest2
+                            logger = system.util.logger("galReportsBatchCross")
+                            logger.info(u'Mix:'+str(mix2)+" Line:"+str(line2)+" Bin:"+str(bin2)+" No cumple paso activo -> Válvula:"+str(tagVlv2)+" Equipo:"+str(tagEqu2) )
+                            break
+                    #If all the valves in the route are active (open and the pre-equipment on)
+                    if routeActive:
+                        #print "RESULTADO RUTA:"
+                        #print route2
+                        #print "Válvula abierta:"+str(changeVlvTag)+" Manual:"+str(routeManual)
+                        #print "--------------------------------------------------------------------"
+                        routesModifiedActives.append(route2)
+                else:
+                    pass
+                    #print "No se revisa ruta Mix:", mix2," Linea:",line2," ExtLine:",extLine2,", porque no contiene a válvula:", changeVlvTag, ", o su linea es igual a la del Mix:", line
+                #print "--------------------------------------------------------------------"
+            #If finds routes actives differents to route mix
+            if len(routesModifiedActives) > 0:
+                showRoutesActives = []
+                showRoutes = [route] + modifiedRoutes
+                for showRoute in showRoutes:
+                    steps3 = showRoute["steps"]
+                    mix3 = showRoute["mix"]
+                    line3 = showRoute["line"]
+                    bin3 = showRoute["bin"]
+                    routeActive = True
+                    routeActiveAux = False
+                    for step3 in steps3:
+                        tagEqu3 = step3["tagEqu"]
+                        tagVlv3 = step3["tagVlv"]
+                        dest3 = 0
+                        reviewValveAct = reviewValveActive(tagVlv3, tagEqu3, dest3, equipment, valves)
+                        routeActiveAux = reviewValveAct["active"]
+                        if not routeActiveAux:
+                            routeActive = False
+                            logger = system.util.logger("galReportsBatchCross")
+                            logger.info(u'Mix:'+str(mix3)+" Line:"+str(line3)+" Bin:"+str(bin3)+" No cumple paso activo -> Válvula:"+str(tagVlv3)+" Equipo:"+str(tagEqu3) )
+                            #print "No cumple paso activo --> Válvula:", tagVlv3," Equipo:", tagEqu3
+                            break
+                    if routeActive:
+                        #If all the valves in the route are active (open and the pre-equipment on)
+                        showRoutesActives.append(showRoute)
+                
+                #print "Mix ", mix, " Rutas a mostrar en registro DB: "
+                #print showRoutesActives
+                #print "--------------------------------------------------------------------"
+                #If routes other than the route defined in the Mix basic unit were found, I report them in a single report to DB. Reporting is done per Mix.
+                reportEventDB(route, showRoutesActives, changeVlvTag, routeManual)
+    else:
+        pass
+        #print "La válvula que activó Tag Change se encuentra dentro de las rutas actuales de los Mix."
+        #print "--------------------------------------------------------------------"
