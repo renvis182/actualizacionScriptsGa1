@@ -1,7 +1,7 @@
 if newValue.value == 2:	
 	#EXTRUSION L2
-	database = system.tag.readBlocking(["process/general/database"])[0].value #Cargamos la base de datos
-	moId1 =system.tag.readBlocking(["process/extrusion/flagExt/flagStartExtL2Ext2/codOrder"])[0].value #Numero de la orden a ejecutarse
+	#database = system.tag.readBlocking(["process/general/database"])[0].value #Cargamos la base de datos
+	#moId1 =system.tag.readBlocking(["process/extrusion/flagExt/flagStartExtL2Ext2/codOrder"])[0].value #Numero de la orden a ejecutarse
 	tagPaths = [
 		"process/general/database",
 		"process/extrusion/flagExt/flagStartExtL2Ext2/codOrder"
