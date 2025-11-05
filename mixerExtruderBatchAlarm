@@ -38,6 +38,3 @@ if  newValue.value == 1:
 				message = u"<html><center>Atención! Proximo batch a finalizar secuencia de Dosificacion y <br> Transferencia de Liquidos en Mixer L2"
 				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertEmDsgMixerExtruder', {'message' : message})
 				system.nav.desktop(invokeDesktop).centerWindow(window)
-		
-		
-
