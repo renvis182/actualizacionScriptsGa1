@@ -12,7 +12,6 @@ if newValue.value == 1:
 		"subOrder53CM01":"gpm02/secondMix/53CM01/CodSubOrder",
 		"order54CM01":"gpm02/secondMix/54CM01/codOrder",
 		"subOrder54CM01":"gpm02/secondMix/54CM01/codSubOrder",
-	
 		"database":"[default]process/general/database"
 	}
 	tagPaths = list(readBlockingTags.values())
