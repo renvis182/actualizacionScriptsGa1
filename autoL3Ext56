@@ -1,0 +1,134 @@
+if newValue.value == 1:
+  start = system.date.now()
+  logger = system.util.getLogger('autoStartL3Ext56')
+  logger.info ('Ejecucion Script Arranque Automatico ExtrusorL3')
+
+  #order53CM01 = system.tag.readBlocking(['gpm02/secondMix/53CM01/codOrder'])[0].value
+  #subOrder53CM01 = system.tag.readBlocking(['gpm02/secondMix/53CM01/CodSubOrder'])[0].value
+  #order54CM01 = system.tag.readBlocking(['gpm02/secondMix/54CM01/codOrder'])[0].value
+  #subOrder54CM01 = system.tag.readBlocking(['gpm02/secondMix/54CM01/codSubOrder'])[0].value
+  readBlockingTags = {
+    "order53CM01":"gpm02/secondMix/53CM01/codOrder",
+    "subOrder53CM01":"gpm02/secondMix/53CM01/CodSubOrder",
+    "order54CM01":"gpm02/secondMix/54CM01/codOrder",
+    "subOrder54CM01":"gpm02/secondMix/54CM01/codSubOrder",
+  
+    "database":"[default]process/general/database"
+  }
+  tagPaths = list(readBlockingTags.values())
+  readingTags = system.tag.readBlocking(tagPaths)
+  tagValues = dict(zip(readBlockingTags.keys()),[r.value for r in readingTags])
+
+  order53CM01 = tagValues["order53CM01"]
+  subOrder53CM01 = tagValues["subOrder53CM01"]
+  order54CM01 = tagValues["order54CM01"]
+  subOrder54CM01 = tagValues["subOrder54CM01"]
+
+  queryOrderL3= "SELECT * FROM galProduction a INNER JOIN galProCurExt b ON a.id = b.id where a.type = 'PS_EXTRUSION' and b.cmdStsFlag = 1 and a.moId like '%' + ? +'%' and a.indexs = ? "
+  dataOrder = ''
+
+  #CONSULTA SI EXISTE CODIGO ORDEN EN LA TOLVA 54CM01 VALIDO PARA REALIZAR EL QUERY
+
+  if order53CM01 != '' and len(order53CM01) == 10 :
+    dataOrder1 = system.db.runPrepQuery(queryOrderL3,[order53CM01,subOrder53CM01])
+    logger.info('EXISTE NUMERO ORDEN VALIDO 53CM01')
+  else:
+    dataOrder1 = ''
+    logger.info('NO EXISTE NUMERO ORDEN VALIDO 53CM01')
+  
+  #CONSULTA SI EXISTE CODIGO ORDEN EN LA TOLVA 54CM01 VALIDO PARA REALIZAR EL QUERY
+
+  if order54CM01 != '' and len(order54CM01) == 10:
+    dataOrder2 = system.db.runPrepQuery(queryOrderL3,[order54CM01,subOrder54CM01])
+    logger.info('EXISTE NUMERO ORDEN VALIDO 54CM01')
+  else:
+    dataOrder2 = ''
+    logger.info('NO EXISTE NUMERO ORDEN VALIDO 54CM01')
+  
+  #CONSULTA FILAS EXISTENTES DEL RESULTADO QUERY Y ACTUALIZA dataOrder
+
+  if len(dataOrder1) > 0:
+    dataOrder = dataOrder1
+  elif len(dataOrder2) > 0:
+    dataOrder = dataOrder2
+  else:
+    dataOrder = '' 
+
+  #TOMA EL id de la ORDEN DEL QUERY
+
+  if len(dataOrder) >0:
+    id = dataOrder[0]['id']
+    #database = system.tag.readBlocking(['procees/general/database'])[0].value
+    database = tagValues["database"]
+    type = 'PS_ EXTRUSION'
+    writeBlockingTags = {}
+  
+  #ACTUALIZA EL USUATION DE TABLA galProdCurExt TOMANDO EL id DE LA ORDEN
+
+    user = 'ignGtwy'
+    queryUpdate = 'update galProCurExt set [user] = ? where id = ?'
+    system.db.runPrepUpdate(queryUpdate,[user,id])
+  
+    moId = dataOrder.getValueAt (0,'moId')
+    index = dataOrder.getValueAt (0,'indexs')
+    nrBatch = dataOrder.getValueAt (0,'nrOffBatches')
+    destination = dataOrder.getValueAt (0,'destination')
+    batchSeq = dataOrder.getValueAt (0,'batchSeqNo')
+    equipmentID = dataOrder.getValueAt (0,'bEquipmentId')
+    finalMatId = dataOrder.getValueAt (0,'finalMatId')
+  
+  # SE TOMA EN N° DE LINEA DE EXTRUSION
+
+    dsg = int(equipmentID[-1])
+  
+  # SE CONSULTA QUE EL N° LINEA  DE EXTRUSION CORRESPONDA AL EXTRUSOR 5 O 6
+
+    if dsg in (5,6):
+  
+  #Buscar si existe la receta y si tiene para los 3 procesos	
+      queryRecipe = 'SELECT DISTINCT(p.id) , p.* FROM galProduction p WHERE p.finalMatId = ? AND p.moId = ?'
+      args = [finalMatId, moId ]
+    
+      dataRecipe = system.db.runPrepQuery(queryRecipe, args)
+      lineM = 0
+      lineE = 0
+      lineC = 0
+      
+      if len(dataRecipe) > 0:
+    
+        for i in dataRecipe:
+          if i ['type'] == 'PS_MIXING':
+            lineM = 1
+          elif i ['type'] == 'PS_EXTRUSION':
+            lineE = 1	
+          elif i ['type'] == 'PS_COATING':
+            lineC = 1
+    
+        if lineE == 0 or lineM == 0 or lineC == 0:
+          logger.info('NO EXISTEN ORDEN DE PRODUCCION GENERADA POR MES, NO SE PUEDE ARRANCAR ORDEN')
+        else:
+          #system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codOrder'],[moId])
+          #system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codSubOrder'],[str(index) + ',' + '#0'])
+          #system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flagBatch'],[batchSeq])
+          #system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flag'],[2])
+          #system.tag.writeAsync(['[default]l3process/extrusion/flagL3/flagScheExt5'], [1])
+          #system.tag.writeAsync(['[default]process/extrusion/flagL3/flagScheExt6Temp'],[1])
+          writeBlockingTags = {
+            "process/extrusion/flagExt/flagStartExtL3Ext65/codOrder":moId,
+            "process/extrusion/flagExt/flagStartExtL3Ext65/codSubOrder":str(index) + ',' + '#0',
+            "process/extrusion/flagExt/flagStartExtL3Ext65/flagBatch":batchSeq,
+            "process/extrusion/flagExt/flagStartExtL3Ext65/flag":2,
+            "[default]l3process/extrusion/flagL3/flagScheExt5":1,
+            "[default]process/extrusion/flagL3/flagScheExt6Temp":1
+          }
+          shared.pcsMentaComms.actionWorkOrder(id,'In Progress',user)
+        
+        if writeBlockingTags:
+          system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+    else:
+      logger.info ('ORDERN NO CORRESPONDE A LINEA #5 #6')
+  else:
+    logger.info ('NO EXISTE INFORMACION DE LA ORDEN EN EL QUERY ')
+  end = system.date.now()    
+  elapsed = system.date.millisBetween(start, end)    
+  logger.info("scripTiming_tagChange_autoL3Ext56: " + str(elapsed) + "ms")
