@@ -1,0 +1,209 @@
+if newValue.value == 1:
+	
+	### Definicion de datos principales
+	dbExt = system.tag.readBlocking(["[default]process/general/extL3/database"])[0].value
+	numExt = 6
+	tagPathCodOrder = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/codOrder"
+	tagPathSubOrder = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/codSubOrder"
+	tagPathBatch = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/flagBatch"
+	tagPathFlag = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/flag"
+	
+	codOrderTag = system.tag.readBlocking([tagPathCodOrder])[0].value
+	codSubOrderTag =  system.tag.readBlocking([tagPathSubOrder])[0].value
+	runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL6/54Aw01Wgt"])[0].value
+	#runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL5/53Aw01Wgt"])[0].value
+	
+	logger = system.util.getLogger("L3Ex6")
+	
+	if  runExt > 0:
+			
+		workOrderPcs = str(codOrderTag) + '_00' + str(codSubOrderTag)
+		query = "SELECT * FROM Campaign WHERE WorkOrder = ? AND StatusID = 5 ORDER BY CampaignID DESC"
+		workOrderExt = system.db.runPrepQuery(query, [workOrderPcs],dbExt)		
+		
+		if len(workOrderExt) == 0: 
+			
+			query = "SELECT * FROM Campaign WHERE StatusID = 5 ORDER BY CampaignID DESC"
+			workOrderExt = system.db.runQuery(query,dbExt)	
+			
+			if len(workOrderExt) > 0:
+				workOrder = workOrderExt[0]['workOrder']
+				codOrder = workOrder[0:workOrder.find('_')]
+				codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
+				
+				#Comparacion de cambio de orden
+				if  codOrderTag != codOrder or int(codSubOrderTag) != codSubOrder:
+					
+					system.tag.writeBlocking([tagPathCodOrder, tagPathSubOrder,tagPathBatch], [codOrder, codSubOrder,0])		
+					workOrder = workOrderExt[0]['workOrder']
+			else :
+				system.tag.writeBlocking([tagPathBatch], [-1])
+				workOrder = workOrderExt[0]['workOrder']
+				codOrder = workOrder[0:workOrder.find('_')]
+				codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
+		else:
+			workOrder = workOrderExt[0]['workOrder']
+			codOrder = workOrder[0:workOrder.find('_')]
+			codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
+						
+		#Consulta de consumos en North
+		batchSeqNo = system.tag.readBlocking([tagPathBatch])[0].value + 1
+		
+		if batchSeqNo != -1:
+			
+			line = [6]
+			types = [["PS_EXTRUSION", "galProCurExt", "galProSeqExt", "galConExt", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02')", ['90CM01','90CM02']], ["PS_COATING", "galProCurCoa", "galProSeqCoa", "galConCoa", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02' or mceLocationId = '95CM04')", ['90CM01','90CM02','95CM04']]]
+			queryDsg = """SELECT
+						LU.Name AS [Line Name]
+						, R.Name AS [Recipe Name]
+						, F.FeedPointName AS [Device]
+						, R.Part AS [Recipe Part]
+						, PM.MaterialName AS [Product Material Name]
+						, PM.PartNo AS [Product Material Part Number]
+						, C.CampaignID AS [Campaign Id]
+						, IM.MaterialName AS [Material Name]
+						, IM.PartNo AS [Material Part Number]
+						,sum(L.IncAmt) AS [Target Weight]
+						,sum( L.IncActual )AS [Actual Weight]
+					FROM Campaign C
+					left join SubCampaign SC on SC.CampaignID = C.CampaignID
+					left join Download D on D.SubCampaignID = SC.SubCampaignID
+					left join Log L on L.DownloadID = D.DownloadID
+					left join FeedPoint F on F.ControlID = L.Item AND F.LineID = L.LineID
+					left join LookUp LU on L.LineID = LU.ItemValue and LU.ItemType = 20
+					left join Recipe R on SC.RecipeID = R.RecipeID
+					left join Material PM on R.MaterialID = PM.MaterialID
+					left join Material IM on L.MaterialID = IM.MaterialID
+					WHERE L.Func in (21,22) and L.LineID = ?   and c.WorkOrder = ?
+					group by lu.name, r.name, f.FeedPointName, r.part, pm.Materialname, pm.PartNo, c.CampaignID, im.Materialname, im.PartNo
+					order by f.FeedPointName asc	"""				
+			
+			header = ['ext', 'code', 'wgt']	
+			conNorth = []
+			#Consulta de codigos de Silo para los consumos
+			for row in line:
+				conNorth = []
+				date = system.date.addMinutes(system.date.now(), int(row))
+				argsDsg = [row, workOrder]	
+				pt = -1	
+				dsg = system.db.runPrepQuery(queryDsg, argsDsg, dbExt)
+				
+				#insertar tabla de pruebas			
+				queryNorthCon = """ INSERT INTO conNorth (LineName,RecipeName
+				      ,Device,RecipePart,ProductMaterialName,ProductMaterialPartNumber
+				      ,CampaingId,MaterialName,MaterialPartNumber
+				      ,TargetWeight ,ActualWeight,batch,id) 
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) """
+				
+				result = [system.db.runPrepUpdate(queryNorthCon,[x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], batchSeqNo ,workOrder]) for x in dsg]
+															
+																																														
+				for c in dsg:
+					product = c['Material Name']
+					wtg = c['Actual Weight']			
+					device = c['Device']
+					logger.info(product)
+					logger.info(str(wtg))
+					if product.find('+') != -1:
+						product = ['Fish oil crude high South AM', 'Soybean oil crude Deg', 'Flav Lucta Hacienda 66 / 3719z']
+						pt = 3
+					elif product.find('Aceite Mix') != -1:	
+						product = ['Fish oil crude high South AM', 'Soybean oil crude Deg']
+						pt = 2
+					elif product.find('Hacienda') == -1 and  product.find('Aceite Soya') == -1 and  product.find('Aceite Pescado') == -1:
+						product = [system.util.translate(product.lower(), "en")]
+						pt = 1	
+					else:
+						pt = 0												
+									
+					
+					for x in range(pt) :					
+											
+						querySilo = 'SELECT * FROM galSilo WHERE materialName like ?'
+						siloCode = system.db.runPrepQuery(querySilo, ['%'+ product[x] +'%'])
+						
+						if len(siloCode) > 0:					
+							
+							#print product[x]
+							#print siloCode[0]['siloCode']
+							#print wtg
+							#print device 						   
+							#print 'PS_EXTRUSION' if device.find('Coater') != -1 else 'PS_COATING'
+							conNorth.append([row, siloCode[0]['siloCode'], wtg, ('PS_COATING' if device.find('Coater') != -1 else 'PS_EXTRUSION'), ('%' if pt > 1 else '/')])								
+										
+				#Informacion de la orden 		
+				for t in types:
+					
+					queryGen = "SELECT * FROM galProduction WHERE moId = ? and indexs = ? and type = ?"
+					dataGen = system.db.runPrepQuery(queryGen, [codOrder, codSubOrder, t[0] ]) 					
+					queryDsgPcs = " SELECT locationId, sum(quantity) FROM " + t[3] +  " WHERE id = ? and line = ? GROUP BY locationId "
+					mix = []
+					
+				 	if len (dataGen) > 0:
+				 		id = dataGen[0]['id']				 		
+				 		queryMce = "SELECT * FROM galMceBatch WHERE id = ? and type = ?"
+				 		dataMce = system.db.runPrepQuery(queryMce, [id, t[0]]) 
+				 		if len(dataMce) > 0:
+				 			#Insertar consumos en tabla de PCS	 			
+				 			
+				 			mixTot = 0
+			 				for mixRow in dataMce:
+			 					if mixRow['mceLocationId'] in t[5]:	
+			 						mixTot += mixRow['mceQuantity'] 
+				 						 					 				 		
+				 			mix = [[mceRow['mceLocationId'],mceRow['mceQuantity']/mixTot] for mceRow in dataMce if mceRow['mceLocationId'] in t[5]]
+				 			dsgPcs = system.db.runPrepQuery(queryDsgPcs, [id, 'Ext' + str(line[0])])
+				 			
+				 			#Toma de la informacion de ingredientes amacenados
+				 			for mce in dataMce:
+				 				argsCon = []
+				 				mceLocationId = mce['mceLocationId']
+				 				wtgMce = mce['mceQuantity']
+				 				x = 0				 				
+				 				
+				 				#Consulta de datos igualesen MCE y la informacion de North
+				 				for n in conNorth:
+				 				
+				 					if mceLocationId == n[1] and t[0] == n[3] :			 									 						
+				 						
+				 						#Consulta de los consumos comletos alamacenados en el PCS
+				 						if len(dsgPcs) > 0:
+				 							for p in dsgPcs:
+				 								if p[0] == n[1] :
+				 									if n[2] >= p[1] and n[4] == '/':
+				 										wtg = n[2] - p[1]
+				 									elif n[2] >= p[1] and n[4] == '%':
+				 										wtg =[n[2]*liqMix[1] for liqMix in mix if liqMix[0] == n[1]]		 											
+				 										wtg = wtg[0] - p[1]
+				 									else:
+				 										wtg = n[2] - p[1]
+				 									break
+				 						else:
+				 							if n[4] == '%':			 							
+				 								wtg =[n[2]*liqMix[1] for liqMix in mix if liqMix[0] == n[1]]
+				 								wtg = wtg[0]	
+				 							else:
+				 								wtg = n[2]			 										 						
+				 						
+				 						queryCon = "INSERT INTO " + t[3] + "(id, date, batchSeqNo, seq, locationId, quantity, materialDefinitionId, unidMeasure, line) VALUES (?,?,?,?,?,?,?,?,?)"
+				 						argsCon = [id, date,batchSeqNo, mce['mceseq'], mce["mceLocationId"], wtg, mce["mceMaterialDefinitionId"],'kg', 'Ext' + str(numExt)]
+				 						#print argsCon
+				 						x = x + 1
+				 						system.db.runPrepUpdate(queryCon, argsCon)
+
+				 						# Reporte Consumos al Menta
+				 						galProduction = id
+				 						numBatch = 0 # Para reportes de extrusión No batch SIEMPRE 0
+				 						action = 'consumption'
+				 						processType = 'Coating'
+				 						# Validar si es consumo de Extrusión
+				 						if str(t[3]) == 'galConExt':
+			 								processType = 'Extruding'
+			 							pesoReport = wtg
+				 							
+ 										# Almacenar en tablas Base de datos
+ 										idList = shared.pcsMentaComms.reportConsumpNew(galProduction, numBatch, action, processType, mce["mceLocationId"], mce["mceMaterialDefinitionId"], pesoReport)
+ 										
+				 						break
+			
+			system.tag.writeBlocking([tagPathFlag, tagPathBatch], [3, batchSeqNo])
