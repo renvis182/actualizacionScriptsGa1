@@ -1,0 +1,26 @@
+#Aviso de información antes de concluir orden de dosificacion en Mixer
+if  newValue.value == 1:
+	ipCli = system.tag.readBlocking(["[System]Client/Network/IPAddress"])[0].value
+	warnUtilitiesWtrTnk= system.tag.readBlocking(["utilities/95CM08BP01/almLoLo"])[0].value
+
+	if ipCli == "10.59.108.104" or ipCli == "10.59.108.105":
+		#Monitor en el que se encuentran las ventanas requeridas
+		dosingDesktop = system.tag.readBlocking(["[Client]general/extruderL1MixerMonitor"])[0].value
+		millingDesktop = system.tag.readBlocking(["[Client]general/dosingMonitor"])[0].value
+		invokeDesktop = "primary"
+		#Desktop en el que se va a abrir el popup, por prioridad
+		if dosingDesktop == "primary" or dosingDesktop == "Monitor 2" or dosingDesktop == "Monitor 3" or dosingDesktop == "Monitor 4":
+			invokeDesktop = dosingDesktop
+			if warnUtilitiesWtrTnk==1:
+			#Apertura de popup
+				message = u"<html><center>Atención! Nivel bajo del tanque de utilidades de agua diaria."
+				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelWaterTank', {'message' : message})
+				system.nav.desktop(invokeDesktop).centerWindow(window)
+		elif millingDesktop == "primary" or millingDesktop == "Monitor 2" or millingDesktop == "Monitor 3" or millingDesktop == "Monitor 4":
+			invokeDesktop = millingDesktop
+			if warnUtilitiesWtrTnk==1:
+			#Apertura de popup
+				message = u"<html><center>Atención! Nivel bajo del tanque de utilidades de agua diaria."
+				window = system.nav.desktop(invokeDesktop).openWindowInstance('common/puMessageAlertLowLevelWaterTank', {'message' : message})
+				system.nav.desktop(invokeDesktop).centerWindow(window)
+			
