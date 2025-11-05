@@ -4,7 +4,8 @@ if  newValue.value == 1:
 		"[System]Client/Network/IPAddress",
 		"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod2",
 		"extrusion/productionLine7/lecitine/warnlecitineExt01FlowMod3",
-		"[Client]general/extruderL7MixerMonitor"
+		"[Client]general/extruderL7MixerMonitor",
+		"[Client]general/extruderL1MixerMonitor"
 	]
 	params = system.tag.readBlocking(tagPaths)
 
@@ -15,6 +16,7 @@ if  newValue.value == 1:
 	warnLecitineExt01Mod2 = params[1].value
 	warnLecitineExt01Mod3 = params[2].value
 	extruderL7Desktop = params[3].value
+	extruderL1Desktop = params[4].value
 
 	if ipCli == "10.59.108.113" :
 		#Monitor en el que se encuentran las ventanas requeridas
