@@ -1,0 +1,16 @@
+if newValue.value == 2:	
+	#EXTRUSION L2
+	database = system.tag.readBlocking(["process/general/database"])[0].value #Cargamos la base de datos
+	moId1 =system.tag.readBlocking(["process/extrusion/flagExt/flagStartExtL2/codOrder"])[0].value #Numero de la orden a ejecutarse
+	fishOil = ''
+	if moId1 != None :
+		#Traemos informacion de la receta de la orden
+		queryGen1 ="Select mceMaterialDefinitionId From galMceBatch where moId = ? and type = 'PS_EXTRUSION'"
+		dataGen1 = system.db.runPrepQuery(queryGen1,[moId1])
+		row = dataGen1.getRowCount()
+		for i in range(row):
+			dato1= dataGen1.getValueAt(i,0)
+			if dato1 == '11241190':
+				 fishOil = dato1	
+		if fishOil != '11241190':			
+			system.gui.messageBox(u"Atención!!! La orden No: "+ moId1 +" NO contiene Aceite de Pescado, Por favor verificar el SP")
