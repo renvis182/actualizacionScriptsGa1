@@ -132,9 +132,9 @@ if newValue.value == 1:
 							"[default]process/extrusion/flagL3/flagScheExt6Temp":1
 						}
 					shared.pcsMentaComms.actionWorkOrder(id,'In Progress',user)
-				if writeBlockingTags:
-						system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
 					logger.info('SI EXISTEN ORDENES DE TRABAJO GENERADA POR MES')
+				if writeBlockingTags:
+						system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))		
 			else:
 				logger.info('NO EXISTEN ORDEN DE PRODUCCION GENERADA POR MES, NO SE PUEDE ARRANCAR ORDEN')
 		else:
