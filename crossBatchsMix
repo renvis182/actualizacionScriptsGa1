@@ -140,13 +140,10 @@ if newValue.value == 1:
         args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd, mix, valveName]
         #print str(query)
         #print str(args)
-
-        logger = system.util.logger("galReportsBatchCross")
         logger.info(u''+str(query)+str(args))
         stQuery = system.db.runPrepUpdate(query, args)
 
         if stQuery == 0: #If it was not possible to add a new record
-            logger = system.util.logger("galReportsBatchCross")
             logger.warn(u'No se pudo añadir reporte en la DB '+str(args))
     ############## End Functions ##############
 
@@ -285,7 +282,6 @@ if newValue.value == 1:
                         if not routeActiveAux:
                             routeActive = False
                             #print "No cumple paso activo --> Válvula:", tagVlv2," Equipo:",tagEqu2," Destino:", dest2
-                            logger = system.util.logger("galReportsBatchCross")
                             logger.info(u'Mix:'+str(mix2)+" Line:"+str(line2)+" Bin:"+str(bin2)+" No cumple paso activo -> Válvula:"+str(tagVlv2)+" Equipo:"+str(tagEqu2) )
                             break
                     #If all the valves in the route are active (open and the pre-equipment on)
