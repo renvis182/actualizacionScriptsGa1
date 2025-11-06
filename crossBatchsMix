@@ -136,7 +136,7 @@ if newValue.value == 1:
         user = tagValues["user"]
 
         #New
-        query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd, mix, valveName]
         #print str(query)
         #print str(args)
@@ -318,7 +318,6 @@ if newValue.value == 1:
                         routeActiveAux = reviewValveAct["active"]
                         if not routeActiveAux:
                             routeActive = False
-                            logger = system.util.logger("galReportsBatchCross")
                             logger.info(u'Mix:'+str(mix3)+" Line:"+str(line3)+" Bin:"+str(bin3)+" No cumple paso activo -> Válvula:"+str(tagVlv3)+" Equipo:"+str(tagEqu3) )
                             #print "No cumple paso activo --> Válvula:", tagVlv3," Equipo:", tagEqu3
                             break
