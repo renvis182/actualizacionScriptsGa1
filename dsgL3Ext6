@@ -1,6 +1,6 @@
 if newValue.value == 1:
 	start = system.date.now()
-	logger = system.util.getLogger("executing_ dsgL3Ext6")
+	logger = system.util.getLogger("executing_dsgL3Ext6")
 
 	### Definicion de datos principales
 	numExt = 6
@@ -217,8 +217,8 @@ if newValue.value == 1:
 			
 			writeBlockingTags[tagPathFlag] = 3
 			writeBlockingTags[tagPathBatch] = batchSeqNo
-	if writeBlockingTags:
-		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+		if writeBlockingTags:
+			system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
 	logger.info("scripTiming_tagChange_dsgL3Ext6: " + str(elapsed) + "ms")
