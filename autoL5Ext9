@@ -123,7 +123,7 @@ if newValue.value == 1:
 					bintag = 'binLiq03'
 				elif loc == '95CM01' :
 					bintag = 'binLiq04'
-				elif loc == '95CM02' :
+				elif loc == 'AGUA' :
 					bintag = 'binLiq05'			
 				elif loc == '95CM04' :
 					bintag = 'binLiq06'
