@@ -22,16 +22,17 @@ if newValue.value == 1:
 	
 	# TOMA DATOS DE CODIGO ORDEN EN LAS EN LAS BALANZAS LIW 55AW01 - 56AW02 
 	readBlockingTags = {
-		"order55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codOrder",
-		"subOrder55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codSuborder",
-		"order56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codOrder",
-		"subOrder56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codSuborder",
-		"database":"process/general/database"
+	    "order55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codOrder",
+	    "subOrder55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codSuborder",
+	    "order56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codOrder",
+	    "subOrder56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codSuborder",
+	    "database":"process/general/database"
 	}
-
-	tagPaths = list(readBlockingTags.values())
+	
+	readKeys  = ["order55AW01","subOrder55AW01","order56AW01","subOrder56AW01","database"]
+	tagPaths  = [readBlockingTags[i] for i in readKeys]
 	readingTags = system.tag.readBlocking(tagPaths)
-	tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+	tagValues = dict(zip(readKeys, [r.value for r in readingTags]))
 
 	order55AW01 = tagValues["order55AW01"]
 	subOrder55AW01 = tagValues["subOrder55AW01"]
