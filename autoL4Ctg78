@@ -21,12 +21,24 @@ if newValue.value == 1:
 	result = system.tag.writeBlocking(tagWrite, tagValue)
 	
 	# TOMA DATOS DE CODIGO ORDEN EN LAS EN LAS BALANZAS LIW 55AW01 - 56AW02 
-	order55AW01 = system.tag.readBlocking('[default]extrusion/productionLine7/extruder1/55AW01/codOrder')[0].value
-	subOrder55AW01 = system.tag.readBlocking('[default]extrusion/productionLine7/extruder1/55AW01/codSuborder')[0].value
-	order56AW01 = system.tag.readBlocking('[default]extrusion/productionLine8/extruder1/56AW01/codOrder')[0].value
-	subOrder56AW01 = system.tag.readBlocking('[default]extrusion/productionLine8/extruder1/56AW01/codSuborder')[0].value
+	readBlockingTags = {
+		"order55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codOrder",
+		"subOrder55AW01":"[default]extrusion/productionLine7/extruder1/55AW01/codSuborder",
+		"order56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codOrder",
+		"subOrder56AW01":"[default]extrusion/productionLine8/extruder1/56AW01/codSuborder",
+		"database":"process/general/database"
+	}
+
+	tagPaths = list(readBlockingTags.values())
+	readingTags = system.tag.readBlocking(tagPaths)
+	tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
+	order55AW01 = tagValues["order55AW01"]
+	subOrder55AW01 = tagValues["subOrder55AW01"]
+	order56AW01 = tagValues["order56AW01"]
+	subOrder56AW01 = tagValues["subOrder56AW01"]
+
 	queryOrderL1 = "SELECT * FROM galProduction a INNER JOIN galProCurCoa b ON a.id = b.id where a.type = 'PS_COATING' and b.cmdStsFlag = 1 and a.moId = ? and a.indexs = ?"
-	
 	
 	# CONSULTA SI EXISTE CODIGO ORDEN EN BALANZAS  55AW01  VALIDO PARA REALIZAR EL QUERY
 	if order55AW01 != '' and len(order55AW01) == 10 :
@@ -35,7 +47,7 @@ if newValue.value == 1:
 	else:
 		dataOrder1 = ''
 		logger.info("NO EXISTE NUMERO DE ORDEN VALIDO 55AW01")
-		
+	
 	# CONSULTA SI EXISTE CODIGO ORDEN EN BALANZAS  56AW01  VALIDO PARA REALIZAR EL QUERY
 	if order56AW01 != '' and len(order56AW01) == 10 :
 		dataOrder2 = system.db.runPrepQuery(queryOrderL1,[order56AW01,subOrder56AW01])
@@ -43,7 +55,7 @@ if newValue.value == 1:
 	else:
 		dataOrder2 = ''
 		logger.info("NO EXISTE NUMERO DE ORDEN VALIDO 56AW01")
-		
+	
 	# CONSULTA FILAS EXISTENTES DEL RESULTADO QUERY Y ACTUALIZA dataOrder 
 	if len(dataOrder1) > 0:
 		dataOrder = dataOrder1
@@ -51,34 +63,33 @@ if newValue.value == 1:
 		dataOrder = dataOrder2
 	else:
 		dataOrder = ''
-		
+	
 	if len(dataOrder) >0:
 		id = dataOrder[0]['id']
-		database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+		#database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+		database = tagValues["database"]
 		type = "PS_COATING"
-	
+		writeBlockingTags = {}
+
 	# ACTUALIZA TABLA USUARIO galProCurCoa TOMANDO EL id DE LA ORDEN		
-	
 		user = 'ignGtwy' #system.tag.readBlocking(['[System]Client/User/Username'])[0].value
 		queryUpdate = "Update galProCurCoa set [user] = ? where id = ?"
 		system.db.runPrepUpdate(queryUpdate,[user,id])
-	
+
 		dataCurr = system.db.runPrepQuery('SELECT batchSeqNo FROM galProCurCoa where id = ?',[id])
-		
-	# INFORMACION DE LA ORDEN galProduction TOMANDO codOrder 52AW01/52AW02 
 	
+	# INFORMACION DE LA ORDEN galProduction TOMANDO codOrder 52AW01/52AW02 
 		moId = dataOrder.getValueAt(0,'moId')
 		index = dataOrder.getValueAt(0,'indexs')
 		batchSeq =  (dataCurr[0][0] if dataCurr[0][0] == 'None' else 0)
 		nrBatch = dataOrder.getValueAt(0,'nrOffBatches')
 		equipmentID = dataOrder.getValueAt(0,'bEquipmentId')
-		
+	
 		dsg = int(equipmentID[-2:])
-		
+	
 	# SE ARMA EL PATH DEL WAREHOUSE
-			
 		tag = "process/extrusion/wrhPL"+str(dsg)+"Ctg"
-			
+		
 		status = tag + "/status"
 		tagId = tag + "/codOrderId"
 		tagModId = tag + "/codOrder"
@@ -88,52 +99,56 @@ if newValue.value == 1:
 		tagStart = tag + "/start"
 		tagRecipe = tag + "/codRec"
 		
-			 		
 	# ESCRIBE INFORMARCION DE LA ORDEN EN EL WHAREHOUSE
-		system.tag.writeBlocking([tagId],[id])
-		system.tag.writeBlocking([tagModId],[moId])
-		system.tag.writeBlocking([tagIndex],[index])	
-		system.tag.writeBlocking([tagNrBatch],[nrBatch])
-		system.tag.writeBlocking([tagBatchSeq],[batchSeq])
-		
-			
+		writeBlockingTags = {
+			tagId:id,
+			tagModId:moId,
+			tagIndex:index,
+			tagNrBatch:nrBatch,
+			tagBatchSeq:batchSeq
+		}
+	
 		queryMce = "Select * from galMceBatch where id = ? and type = ?"
 		dataMce = system.db.runPrepQuery(queryMce,[id,type])
-				
+			
 	#Cargar los ingredientes para la receta	
-		
 		for i in range (dataMce.getRowCount()):
 			seq = dataMce.getValueAt(i,4)
 			cod = dataMce.getValueAt(i,5)
 			loc = dataMce.getValueAt(i,8)			
 			qua = dataMce.getValueAt(i,9)
-			
+		
 			#Cargar los ingredientes en los codigos de unidad	
 			queryBin = ("select unit from galSilo where siloCode = ?")
 			bintag = system.db.runPrepQuery(queryBin,[loc])
-			
+		
 			# Exite un código de Bin válido para el producto
 			if bintag.getRowCount() != 0:
 				ingCod = tag + "/" + str(bintag[0][0]) + "/ingCod"
 				wgt = tag + "/" + str(bintag[0][0]) + "/wgtRecipe"
+				writeBlockingTags[wgt] = qua
+				writeBlockingTags[ingCod] = cod
 				
-				system.tag.writeBlocking([wgt, ingCod],[qua, cod])
-					
 		#Cargo los parametros de la receta			
 		queryParam = "Select * from galBatchParam where id = ? and type = ?"
 		dataParam = system.db.runPrepQuery(queryParam,[id,type])
-	
+
 		for i in range (dataParam.getRowCount()):	
 			name = dataParam.getValueAt(i,0)
 			value = dataParam.getValueAt(i,1)
-			
+		
 			#solo estan habilitados 3 setpoints en el UDT
 			if int(name[-2:]) <= 3:		
 				sp = tag + "/coSp"  + "/sp" + name[-2:]
-				system.tag.writeBlocking([sp],[value])
+				writeBlockingTags[sp] = value
+		if writeBlockingTags:
+			system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
 	else:
 		logger.info("NO EXISTE INFORMACION DE LA ORDEN EN EL QUERY ")
-		
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
 	logger.info("scripTiming_tagChange_autoL4Ctg78: " + str(elapsed) + "ms")
+	
+end = system.date.now()    
+elapsed = system.date.millisBetween(start, end)    
+logger.info("scripTiming_tagChange_autoL4Ctg78: " + str(elapsed) + "ms")
