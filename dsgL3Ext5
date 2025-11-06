@@ -57,7 +57,6 @@ if newValue.value == 1:
 			codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
 					
 		#Consulta de consumos en North
-		#batchSeqNo = system.tag.readBlocking([tagPathBatch])[0].value + 1
 		batchSeqNo = tagValues["batchSeqNo"] + 1
 	
 		if batchSeqNo != -1:
@@ -208,7 +207,7 @@ if newValue.value == 1:
 									queryCon = "INSERT INTO " + t[3] + "(id, date, batchSeqNo, seq, locationId, quantity, materialDefinitionId, unidMeasure, line) VALUES (?,?,?,?,?,?,?,?,?)"
 									argsCon = [id, date,batchSeqNo, mceseq, locationId, wtg, MaterialDefinitionId,'kg', 'Ext' + str(numExt)]
 									#print argsCon
-									x = x + 1
+									#x = x + 1
 									system.db.runPrepUpdate(queryCon, argsCon)
 									# Reporte Consumos al Menta
 									galProduction = id
@@ -226,8 +225,8 @@ if newValue.value == 1:
 			writeBlockingTags[tagPathFlag] = 3
 			writeBlockingTags[tagPathBatch] = batchSeqNo
 
-	if writeBlockingTags:
-		system.tag.writeBlocking(list(writeBlockingTags.keys()),list(writeBlockingTags.values()))
+		if writeBlockingTags:
+			system.tag.writeBlocking(list(writeBlockingTags.keys()),list(writeBlockingTags.values()))
 
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
