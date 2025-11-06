@@ -66,7 +66,6 @@ if newValue.value == 1:
 	
 	if len(dataOrder) >0:
 		id = dataOrder[0]['id']
-		#database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
 		database = tagValues["database"]
 		type = "PS_COATING"
 		writeBlockingTags = {}
