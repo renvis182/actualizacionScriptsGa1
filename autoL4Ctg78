@@ -147,7 +147,3 @@ if newValue.value == 1:
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
 	logger.info("scripTiming_tagChange_autoL4Ctg78: " + str(elapsed) + "ms")
-	
-end = system.date.now()    
-elapsed = system.date.millisBetween(start, end)    
-logger.info("scripTiming_tagChange_autoL4Ctg78: " + str(elapsed) + "ms")
