@@ -1,6 +1,7 @@
 if newValue.value == 1:
 	start = system.date.now()
 	logger = system.util.getLogger("executing_dsgL3Ext5")
+
 	### Definicion de datos principales
 	numExt = 5
 	tagPathCodOrder = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/codOrder"
@@ -19,20 +20,10 @@ if newValue.value == 1:
 	readingTags = system.tag.readBlocking(tagPaths)
 	tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
 
-	#dbExt = system.tag.readBlocking(["[default]process/general/extL3/database"])[0].value
 	dbExt = tagValues["dbExt"]
-	#codOrderTag = system.tag.readBlocking([tagPathCodOrder])[0].value
 	codOrderTag = tagValues["codOrderTag"]
-	#codSubOrderTag =  system.tag.readBlocking([tagPathSubOrder])[0].value
 	codSubOrderTag = tagValues["codSubOrderTag"]
-	#runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL5/53Aw01Wgt"])[0].value
 	runExt = tagValues["runExt"]
-
-	### Initiating comments previous to read/write efficiency change ###
-	#runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL6/54Aw01Wgt"])[0].value
-	### Ending comments previous to read/write efficiency change ###
-
-	logger = system.util.getLogger("L3Ex5")
 
 	if  runExt > 0:
 		writeBlockingTags = {}
@@ -41,7 +32,6 @@ if newValue.value == 1:
 		workOrderExt = system.db.runPrepQuery(query, [workOrderPcs],dbExt)		
 	
 		if len(workOrderExt) == 0: 
-		
 			query = "SELECT * FROM Campaign WHERE StatusID = 5 ORDER BY CampaignID DESC"
 			workOrderExt = system.db.runQuery(query,dbExt)	
 		
@@ -51,15 +41,12 @@ if newValue.value == 1:
 				codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
 			
 				#Comparacion de cambio de orden
-				if  codOrderTag != codOrder or int(codSubOrderTag) != codSubOrder:
-				
-					#system.tag.writeBlocking([tagPathCodOrder, tagPathSubOrder,tagPathBatch], [codOrder, codSubOrder,0])		
+				if  codOrderTag != codOrder or int(codSubOrderTag) != codSubOrder:	
 					writeBlockingTags[tagPathCodOrder] = codOrder
 					writeBlockingTags[tagPathSubOrder] = codSubOrder
 					writeBlockingTags[tagPathBatch] = 0
 					workOrder = workOrderExt[0]['workOrder']
 			else :
-				#system.tag.writeBlocking([tagPathBatch], [-1])
 				writeBlockingTags[tagPathBatch] = -1
 				workOrder = workOrderExt[0]['workOrder']
 				codOrder = workOrder[0:workOrder.find('_')]
@@ -74,10 +61,8 @@ if newValue.value == 1:
 		batchSeqNo = tagValues["batchSeqNo"] + 1
 	
 		if batchSeqNo != -1:
-		
 			line = [1]
 			types = [["PS_EXTRUSION", "galProCurExt", "galProSeqExt", "galConExt", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02')", ['90CM01','90CM02']], ["PS_COATING", "galProCurCoa", "galProSeqCoa", "galConCoa", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02' or mceLocationId = '95CM04')", ['90CM01','90CM02','95CM04']]]
-				
 			queryDsg = """SELECT
 						LU.Name AS [Line Name]
 						, R.Name AS [Recipe Name]
@@ -119,16 +104,15 @@ if newValue.value == 1:
 					  ,CampaingId,MaterialName,MaterialPartNumber
 					  ,TargetWeight ,ActualWeight,batch,id) 
 				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) """
-			
 				result = [system.db.runPrepUpdate(queryNorthCon,[x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], x[9], x[10], batchSeqNo ,workOrder]) for x in dsg]
-																																																							
-																																																								
+																																																																																																		
 				for c in dsg:
 					product = c['Material Name']
 					wtg = c['Actual Weight']			
 					device = c['Device']
 					logger.info(product)
 					logger.info(str(wtg))
+
 					if product.find('+') != -1:
 						product = ['Fish oil crude high South AM', 'Soybean oil crude Deg', 'Flav Lucta Hacienda 66 / 3719z']
 						pt = 3
@@ -149,7 +133,6 @@ if newValue.value == 1:
 					
 					#logger.info(str(pt))
 					for x in range(pt) :					
-										
 						querySilo = 'SELECT * FROM galSilo WHERE materialName like ?'
 						siloCode = system.db.runPrepQuery(querySilo, ['%'+ product[x] +'%'])
 
@@ -158,7 +141,6 @@ if newValue.value == 1:
 
 				#Informacion de la orden 		
 				for t in types:
-				
 					queryGen = "SELECT * FROM galProduction WHERE moId = ? and indexs = ? and type = ?"
 					dataGen = system.db.runPrepQuery(queryGen, [codOrder, codSubOrder, t[0] ]) 					
 					queryDsgPcs = " SELECT locationId, sum(quantity) FROM " + t[3] +  " WHERE id = ? and line = ? GROUP BY locationId"
@@ -179,7 +161,8 @@ if newValue.value == 1:
 							dsgPcs = system.db.runPrepQuery(queryDsgPcs, [id, 'Ext'+ str(numExt)])
 						
 							#Toma de la informacion de ingredientes almacenados
-							argsCon = []			 				
+							argsCon = []	
+
 							for n in conNorth:
 								locationId = n[1]
 								wgtActual = n[2]
@@ -187,12 +170,15 @@ if newValue.value == 1:
 								ingredientType = n[4]
 								MaterialDefinitionId = n[5]
 								record = 0
+
 								if  PStype == t[0] and locationId in t[5] and ingredientType == '%':
 									for liqMix in mix:
 										if liqMix[0] == locationId:
 											record = 1
+
 								if PStype == t[0] and locationId not in t[5] and ingredientType == '/':
 									record = 1				 						
+
 									#Consulta de los consumos comletos alamacenados en el PCS
 								if record == 1:
 									if len(dsgPcs) > 0:
@@ -236,11 +222,13 @@ if newValue.value == 1:
 									# Almacenar en tablas Base de datos
 									idList = shared.pcsMentaComms.reportConsumpNew(galProduction, numBatch, action, processType, mce["mceLocationId"], mce["mceMaterialDefinitionId"], pesoReport)
 				break
-			#system.tag.writeBlocking([tagPathFlag, tagPathBatch], [3, batchSeqNo])
+
 			writeBlockingTags[tagPathFlag] = 3
 			writeBlockingTags[tagPathBatch] = batchSeqNo
+
 	if writeBlockingTags:
 		system.tag.writeBlocking(list(writeBlockingTags.keys()),list(writeBlockingTags.values()))
+
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
 	logger.info("scripTiming_tagChange_dsgL3Ext5: " + str(elapsed) + "ms")
