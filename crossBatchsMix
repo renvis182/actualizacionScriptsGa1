@@ -25,26 +25,12 @@ if newValue.value == 1:
     tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
 
     #With "extLine" you know which route should be active
-    #extLineMix1 = system.tag.readBlocking([ pathExtLineMix1 ])[0].value #Returns an integer
-    #extLineMix2 = system.tag.readBlocking([ pathExtLineMix2 ])[0].value
     extLineMix1 = tagValues["extLineMix1"]
     extLineMix2 = tagValues["extLineMix2"]
-
-    ### Initiating comments previous to read/write efficiency change ###	
-    #For test in script console -----------------------------------
-    #pathAux = "[default]gpm/secondMix/43GL12QM02/zso"
-    #changeVlvTag = "44GL12QM05"
-    #extLineMix1 = 7 #For TEST
-    #extLineMix2 = 8	#For TEST
-    #End test ------------------------------------
-    ### Ending comments previous to read/write efficiency change ###	
 
     routes = batchCrossData['routes'] #Get dictionary array of routes
     equipment = batchCrossData['equipment'] #Get dictionary array of equipment
     valves = batchCrossData['valves'] #Get dictionary array of valves
-    #print "Todas las rutas:"
-    #print routes
-    #print "--------------------------------------------------------------------"
 
     #FUNCTIONS
     ################# Funcion 1 ################
@@ -126,45 +112,39 @@ if newValue.value == 1:
             event = 'APERTURA MANUAL'
         else:
             event = 'CAMBIO DESTINO'
+
         readBlockingTags = {
             "activeOrderCond1":"[default]gpm/secondMix/43GL09/codOrder",
             "batchCurrentCond1":"[default]gpm/secondMix/43GL09/batchCurrent",
-            
             "activeOrderCond2":"[default]gpm02/secondMix/44GL09/codOrder",
             "batchCurrentCond2":"[default]gpm02/secondMix/44GL09/batchCurrent",
-        
             "user":"[default]reports/userCrossBatch"
         }
         tagPaths = list(readBlockingTags.values())
         readingTags = system.tag.readBlocking(tagPaths)
         tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
         #Get data about mix from tags
         if mix == 1:
-            #activeOrder = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/codOrder'])[0].value
-            #batchCurrent = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/batchCurrent'])[0].value
             activeOrder = tagValues["activeOrderCond1"]
             batchCurrent = tagValues["batchCurrentCond1"]
         else: #If is mix 2
-            #activeOrder = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/codOrder'])[0].value
-            #batchCurrent = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/batchCurrent'])[0].value
             activeOrder = tagValues["activeOrderCond2"]
             batchCurrent = tagValues["batchCurrentCond2"]
+
         #Get data about user
-        #user = system.tag.readBlocking(['[default]reports/userCrossBatch'])[0].value
         user = tagValues["user"]
-        #user = "User Test" #for TEST
-        #Old
-        #query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        #args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd]
+
         #New
         query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd, mix, valveName]
         #print str(query)
         #print str(args)
+
         logger = system.util.logger("galReportsBatchCross")
         logger.info(u''+str(query)+str(args))
-        #stQuery = 1
         stQuery = system.db.runPrepUpdate(query, args)
+
         if stQuery == 0: #If it was not possible to add a new record
             logger = system.util.logger("galReportsBatchCross")
             logger.warn(u'No se pudo añadir reporte en la DB '+str(args))
