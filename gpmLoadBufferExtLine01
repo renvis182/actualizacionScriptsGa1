@@ -2,6 +2,9 @@
 if  newValue.value == 1:
 	start = system.date.now()
 	writeBlockingTags = {}
+	#system.tag.writeBlocking([  "process/dosing/ordersAdmin/gpmExtLine01LoadBatch"],[0]) #Se debe analizar este caso si es necesario escribir este 0
+		#al inicio del script, en tal caso por el momento lo dejo comentado y agregago a la dict writeBlockingTags. Si es necesario rollback es 
+		#necesario descomentar primera linea y comentar la ultima donde se lo agrega al dict.
 	writeBlockingTags["process/dosing/ordersAdmin/gpmExtLine01LoadBatch"] = 0
 	logger = system.util.getLogger("ProductionLogs")
 	logger.info("Loading ExtLine01 Batch to Execution Buffer")
