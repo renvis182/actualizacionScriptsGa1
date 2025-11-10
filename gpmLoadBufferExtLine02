@@ -1,6 +1,8 @@
 #---Script para carga automática de batches al buffer de producción---
 if  newValue.value == 1:
-	system.tag.writeBlocking([  "process/dosing/ordersAdmin/gpmExtLine02LoadBatch"],[0])
+	start = system.date.now()
+	writeBlockingTags = {}
+	writeBlockingTags["process/dosing/ordersAdmin/gpmExtLine02LoadBatch"] = 0
 	logger = system.util.getLogger("ProductionLogs")
 	logger.info("Loading ExtLine02 Batch to Execution Buffer")
 	extLine = 'EXTLINE02'
@@ -38,21 +40,26 @@ if  newValue.value == 1:
 							WHERE id = ?"
 	args = [bId,nextBatch,id]
 	system.db.runPrepUpdate(query,args) #esta linea escribe 2 batchs en el buffer
-	logger.info("Prueba baseL2: "+ query) #borrar , esta linea es para ver si se ejecuta el query
-	logger.info("Prueba baseL2: "+ str(args)) #borrar , esta linea es para ver los argumentos escritos
+	#logger.info("Prueba baseL2: "+ query) #borrar , esta linea es para ver si se ejecuta el query
+	#logger.info("Prueba baseL2: "+ str(args)) #borrar , esta linea es para ver los argumentos escritos
 	nextBatchPath = 'process/dosing/ordersAdmin/' + line + '/bufferActualBatch' + line
-	system.tag.writeBlocking([  nextBatchPath],[nextBatch])
+	writeBlockingTags[nextBatchPath] = nextBatch
 	queryProdOrder = "UPDATE galProdOrderBuffer SET batchBufferNo = batchBufferNo - 1 where id = ?"
 	argsProdOrder = [id]
 	system.db.runPrepUpdate(queryProdOrder,argsProdOrder)
 	#New code for batch planning
 	if bufferBatches - 1 == 0:					
 		if extLine == 'EXTLINE01' and mixLine == 'MIXING01':
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine01M1Present"],[0])
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine01Gpm"],[0])
+			writeBlockingTags["process/dosing/ordersAdmin/extLine01M1Present"] = 0
+			writeBlockingTags["process/dosing/ordersAdmin/extLine01Gpm"] = 0
 		elif extLine == 'EXTLINE02' and mixLine == 'MIXING01':
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine02M1Present"],[0])
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine02Gpm"],[0])
+			writeBlockingTags["process/dosing/ordersAdmin/extLine02M1Present"] = 0
+			writeBlockingTags["process/dosing/ordersAdmin/extLine02Gpm"] = 0
 		elif extLine == 'EXTLINE05' and mixLine == 'MIXING01':
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine05M1Present"],[0])
-			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine05Gpm"],[0])
+			writeBlockingTags["process/dosing/ordersAdmin/extLine05M1Present"] = 0
+			writeBlockingTags["process/dosing/ordersAdmin/extLine05Gpm"] = 0
+	if writeBlockingTags:
+		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+	end = system.date.now()    
+	elapsed = system.date.millisBetween(start, end)
+	logger.info("scripTiming_tagChange_gpmLoadBufferExtLine02: " + str(elapsed) + "ms")
