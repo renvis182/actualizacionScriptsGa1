@@ -1,0 +1,64 @@
+#---Script para carga automática de batches al buffer de producción---
+if  newValue.value == 1:
+	system.tag.writeBlocking([  "process/dosing/ordersAdmin/gpmExtLine09LoadBatch"],[0])
+	logger = system.util.getLogger("ProductionLogs")
+	logger.info("Loading ExtLine09 Batch to Execution Buffer")
+	extLine = 'EXTLINE09'
+	query = 'SELECT bEquipmentId FROM galProdOrderBuffer WHERE destination = ? AND batchBufferNo > 0'
+	prodOrderBuffer = system.db.runPrepQuery(query,[extLine])
+	mixLine = prodOrderBuffer[0][0] #MIXING02
+	counter = prodOrderBuffer.getRowCount() #1
+	if mixLine == 'MIXING01':
+		galProdBatchBuffer = 'galProdBatchBuffer01'
+		line = 'L1'
+	elif mixLine == 'MIXING02':
+		galProdBatchBuffer = 'galProdBatchBuffer02'
+		line = 'L2'
+	query = 'SELECT * FROM galProdOrderBuffer where destination = ? AND bEquipmentId = ?'
+	orderData = system.db.runPrepQuery(query,[extLine,mixLine])			
+	#Data del buffer de batches
+	query = 'SELECT * FROM ' + galProdBatchBuffer
+	batchBuffer = system.db.runPrepQuery(query) #En caso de que haya  otro batch de otra orden en el buffer
+	#Data para nuevo batch
+	id = orderData.getValueAt(0,0) #4
+	totalBatches = orderData.getValueAt(0,4) #45
+	bufferBatches = orderData.getValueAt(0,6) #42
+	bId = batchBuffer.getRowCount() + 1	# si no hay  batch en el buffer sera 0+1 caso contrario sera n+1		
+	nextBatch = totalBatches - bufferBatches + 1 #batch to add - 45-42+1 = 4
+	query = "INSERT INTO " + galProdBatchBuffer + " \
+								SELECT  ? as bId,\
+								moId,\
+								orderIndex,\
+								finalMatDesc,\
+								totalBatches,\
+								? as actualBatch,\
+								gpmLine,\
+								destination\
+							FROM galProdOrderBuffer\
+							WHERE id = ?"
+	args = [bId,nextBatch,id]
+	system.db.runPrepUpdate(query,args) #esta linea escribe 2 batchs en el buffer
+	logger.info("Prueba baseL9: "+ query) #borrar , esta linea es para ver si se ejecuta el query
+	logger.info("Prueba baseL9: "+ str(args)) #borrar , esta linea es para ver los argumentos escritos
+	nextBatchPath = 'process/dosing/ordersAdmin/' + line + '/bufferActualBatch' + line
+	system.tag.writeBlocking([  nextBatchPath],[nextBatch])
+	queryProdOrder = "UPDATE galProdOrderBuffer SET batchBufferNo = batchBufferNo - 1 where id = ?"
+	argsProdOrder = [id]
+	system.db.runPrepUpdate(queryProdOrder,argsProdOrder)
+	#New code for batch planning
+	if bufferBatches - 1 == 0:					
+		if extLine == 'EXTLINE07' and mixLine == 'MIXING02':
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine07M2Present"],[0])
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine07Gpm"],[0])
+		elif extLine == 'EXTLINE09' and mixLine == 'MIXING02':
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine09M2Present"],[0])
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine09Gpm"],[0])
+		elif extLine == 'EXTLINE10' and mixLine == 'MIXING02':
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine10M2Present"],[0])
+			system.tag.writeAsync(["process/dosing/ordersAdmin/extLine10Gpm"],[0])
+	
+
+#	if extLine == 'EXTLINE05' and mixLine == 'MIXING02':
+#				system.tag.writeAsync(["process/dosing/ordersAdmin/extLine05M2Present"],[0])
+#				system.tag.writeAsync(["process/dosing/ordersAdmin/extLine05Gpm"],[0])
+#			elif 
