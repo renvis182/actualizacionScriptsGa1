@@ -1,8 +1,11 @@
 #---Script para descargar data del batch al PLC---
 if  newValue.value == 1:
-	system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
+	start = system.date.now()
+	writeBlockingTags = {}
+	#system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
+	writeBlockingTags["process/dosing/ordersAdmin/L1/gpmStartBatchL1"] = 0
 	logger = system.util.getLogger("Start Batch Fase B")
-	
+
 	#Data del siquiente batch del buffer de producción
 	query = "Select * from galProdBatchBuffer01"
 	data = system.db.runPrepQuery(query)
@@ -13,7 +16,7 @@ if  newValue.value == 1:
 	destination = data.getValueAt(0,7)
 	gpmLine = data.getValueAt(0,6)
 	type = "PS_MIXING"
-	
+
 	#Validación data proceso para el arranque
 	validation=1
 	#validation = project.ordersAdmin.validationL1(gpmLine)
@@ -23,7 +26,7 @@ if  newValue.value == 1:
 		dataProd = system.db.runPrepQuery(query,[orderId,orderIndex])
 		id = dataProd.getValueAt(0,0) #order ID
 		logger.info("El id de la orden es: " + id)
-		
+	
 		#Toma la linea de extrusión de destino
 		if destination == 'EXTLINE01':
 			ext = 1
@@ -43,7 +46,7 @@ if  newValue.value == 1:
 			ext = 10
 		#elif destination == 'EXTLINE11':
 			#ext = 11
-			
+		
 		#Toma la linea de molienda a la que pertenece
 		if gpmLine == 'GPMLINE01':
 			gpm = 1
@@ -65,9 +68,9 @@ if  newValue.value == 1:
 			gpm = 10	
 		#elif gpmLine == 'GPMLINE11':
 			#gpm = 11
-			
-		liq=0
 		
+		liq=0
+	
 		#Tags descarga del plc	
 		tag = "process/dosing/wrhDsg02"
 		tagModId = tag + "/codOrder"
@@ -77,16 +80,20 @@ if  newValue.value == 1:
 		tagExtLine = tag + "/extLine"
 		tagGpmLine = tag + "/gpmLine"
 		tagLiquid = tag + "/liquidsEnable"	
-		
-		tagPaths = [tagModId,tagIndex,tagNrBatch,tagBatchSeq,tagExtLine,tagGpmLine]	
-		tagValues = [orderId,orderIndex,nrBatch,batchSeqNo,ext,gpm]
 	
+		writeBlockingTags[tagModId] = orderId
+		writeBlockingTags[tagIndex] = orderIndex
+		writeBlockingTags[tagNrBatch] = nrBatch
+		writeBlockingTags[tagBatchSeq] = batchSeqNo
+		writeBlockingTags[tagExtLine] = ext
+		writeBlockingTags[tagGpmLine] = gpm
+
 		#Data de ingredientes de la orden
 		queryMce = "Select * from galMceBatch where id = ? and type = ? and handAddition = 0"
 		dataMce = system.db.runPrepQuery(queryMce,[id,type])	
 		test = dataMce.getRowCount()	
 		logger.info("El numero de ingredientes es: " + str(test))
-		
+	
 		#Sin adiciones manuales	
 		if dataMce.getRowCount()!= 0:	
 			for i in range (dataMce.getRowCount()):
@@ -102,11 +109,9 @@ if  newValue.value == 1:
 				bintag = system.db.runPrepQuery(queryBin,[loc])			
 				ingCod = tag + "/" + bintag[0][0] + "/ingCod"
 				wgt = tag + "/" + bintag[0][0] + "/wgtRecipe"
-				tagPaths.append(wgt)
-				tagPaths.append(ingCod)
-				tagValues.append(qua)
-				tagValues.append(cod)			
-					
+				writeBlockingTags[wgt] = qua
+				writeBlockingTags[ingCod] = cod
+				
 		#Con adiciones manuales
 		queryMce = "Select * from galMceBatch where id = ? and type = ? and handAddition = 1"
 		dataMce = system.db.runPrepQuery(queryMce,[id,type])		
@@ -123,46 +128,52 @@ if  newValue.value == 1:
 					tag1 = tag + "/hndAdd" + str(j)			
 				ingCod = tag1 + "/ingCod"
 				wgt = tag1 + "/wgtRecipe"	
-				tagPaths.append(wgt)
-				tagPaths.append(ingCod)
-				tagValues.append(qua)
-				tagValues.append(cod)			
-				j = j+1					
+				writeBlockingTags[wgt] = qua
+				writeBlockingTags[ingCod] = cod
+				j = j+1
 		if liq == 1:
-			tagPaths.append(tagLiquid)
-			tagValues.append(1)					
+			value = 1
 		else:
-			tagPaths.append(tagLiquid)
-			tagValues.append(0)			
-		
-		system.tag.writeBlocking(tagPaths,tagValues)		
+			value = 0
+		writeBlockingTags[tagLiquid] = value
+	
+		#system.tag.writeBlocking(tagPaths,tagValues) en este momento se hubieran escrito los tagPaths
 
 		#Actualiza el usuario que realiza la operación
 		user = system.tag.readBlocking(["[System]Client/User/Username"])[0].value
 		queryUpdate = "Update galProCurMix set [user] = ? where id = ?"
 		system.db.runPrepUpdate(queryUpdate,[user,id])
-				
+			
 		#Actualiza la orden seleccionada con flag = 2
 		if batchSeqNo > 0:
 			queryUpdate = "Update galProCurMix set flagPcs = 2 where id = ?"
 			system.db.runPrepUpdate(queryUpdate,[id])
-			
+		
 		#Elimina el batch del buffer de produccion
 		system.db.runPrepUpdate('DELETE FROM galProdBatchBuffer01 WHERE id = 1')
-			
+		
 		#Shifts the rows up for execution order
 		queryProdBatch = "UPDATE galProdBatchBuffer01 SET id = id-1 where id > 1"
 		system.db.runPrepUpdate(queryProdBatch)
-		#system.tag.writeBlocking(["process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
-		system.tag.writeBlocking(["gpm/gpmHmiStartOrderL2"],[1])
+	
+		writeBlockingTags["gpm/gpmHmiStartOrderL2"] = 1
+	
 		logger.info("Arranque batch: " + str(orderId) + "-" + str(orderIndex) + ". Batch: " + str(batchSeqNo))
 		query = "Select COUNT (id) from galProdBatchBuffer01"
 		bufferBatches = system.db.runScalarPrepQuery(query)
+
 		if bufferBatches > 0:
 			query = "Select actualBatch from galProdBatchBuffer01 where id = ?"
 			nextBatch = system.db.runScalarPrepQuery(query,[1])
 		else:
 			nextBatch = 0
-		system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/bufferActualBatchL1"],[nextBatch])
+		writeBlockingTags["process/dosing/ordersAdmin/L1/bufferActualBatchL1"] = nextBatch
+
 	else:
-		system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
+		writeBlockingTags["process/dosing/ordersAdmin/L1/gpmStartBatchL1"] = 0
+
+	if writeBlockingTags:
+		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+	end = system.date.now()    
+	elapsed = system.date.millisBetween(start, end)    
+	logger.info("scripTiming_tagChange_gpmStartBatchL2: " + str(elapsed) + "ms")

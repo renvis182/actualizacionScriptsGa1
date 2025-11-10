@@ -3,31 +3,43 @@ u52orderCode = 'gpm/secondMix/52CM01/codOrder'
 u43Aw01orderCode = 'gpm/secondMix/43AW01/codOrder'
 u43Aw01extLine = 'gpm/secondMix/43AW01/extLine'
 
-u51orderCode = system.tag.readBlocking([u51orderCode])[0].value
-u52orderCode = system.tag.readBlocking([u52orderCode])[0].value
-u43Aw01orderCode = system.tag.readBlocking([u43Aw01orderCode])[0].value
-u43Aw01extLine = system.tag.readBlocking([u43Aw01extLine])[0].value
+readBlockingTags = {
+	"u51orderCode":u51orderCode,
+	"u52orderCode":u52orderCode,
+	"u43Aw01orderCode":u43Aw01orderCode,
+	"u43Aw01extLine":u43Aw01extLine,
+	"database":"process/general/database",
+	"user":"[System]Client/User/Username"
+}
+tagPaths = list(readBlockingTags.values())
+readingTags = system.tag.readBlocking(tagPaths)
+tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
+u51orderCode = tagValues["u51orderCode"]
+u52orderCode = tagValues["u52orderCode"]
+u43Aw01orderCode = tagValues["u43Aw01orderCode"]
+u43Aw01extLine = tagValues["u43Aw01extLine"]
+writeBlockingTags = {}
 
 if newValue.value == 1:
-
 	#Consulta por Orden de la Linea 9
-	database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
-	user = system.tag.readBlocking(["[System]Client/User/Username"])[0].value #Base de Datos
-	
-	#queryProd = "Select finalMatId from galProduction where moId like ?" #Consulta por orden que se encuentra en la unidad en este momento
+	database = tagValues["database"]
+	user = tagValues["user"]
+
 	queryProd = "Select finalMatId from galProduction where moId like ?" #Consulta por orden que se encuentra en la unidad en este momento
 	dataProd = system.db.runPrepQuery(queryProd,[u43Aw01orderCode])
-	#finalMatId = dataProd.getValueAt(0, 'finalMatId')
 	finalMatId = dataProd.getValueAt(0,'finalMatId')
 
 	if u43Aw01extLine == 1:
 		tag = "gpm/secondMix/51Cm01ProdFormulaId" #Variable auxiliar
 		tagFinalMatId = tag			
-		system.tag.writeAsync([tagFinalMatId],[finalMatId]) #Escribe la Variable Auxiliar en el PLC
-		
+	
 	elif u43Aw01extLine == 2:
 		tag = "gpm/secondMix/52Cm01ProdFormulaId" #Variable auxiliar
 		tagFinalMatId = tag			
-		system.tag.writeAsync([tagFinalMatId],[finalMatId]) #Escribe la Variable Auxiliar en el PLC	
-		
-system.tag.writeAsync(["gpm/secondMix/43Aw01ProdFormulaIdFlag"],[0]) #Cambio el estado del tag Flag
+	writeBlockingTags[tagFinalMatId] = finalMatId
+
+writeBlockingTags["gpm/secondMix/43Aw01ProdFormulaIdFlag"] = 0
+
+if writeBlockingTags:
+	system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
