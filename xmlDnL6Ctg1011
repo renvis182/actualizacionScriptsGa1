@@ -1,0 +1,86 @@
+if  newValue.value == 4:
+	#Para linea dinamica
+	ctgLine = '10'
+	type = "PS_COATING"
+	extLine = 10
+	status = 0 
+	logger = system.util.getLogger("Gtwy_ChangeOrder")
+	logger.info("Start: Close order by Auto Mode  for Line " + str(extLine))
+	
+	
+	database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+	id = system.tag.readBlocking(["[default]process/extrusion/flagCtg/flagStartCtgL10/codId"])[0].value	
+	logger.info("Ctg Order Old: " + str(id))
+	
+	moId = system.tag.readBlocking(["process/extrusion/flagCtg/flagDnCtgL" + str(extLine) + "/codOrder"])[0].value #Numero de la orden a ejecutarse
+	index = system.tag.readBlocking(["process/extrusion/flagCtg/flagDnCtgL" + str(extLine) + "/codSubOrder"])[0].value #Numero de index
+	BatchSeqNo = system.tag.readBlocking(["process/extrusion/flagCtg/flagDnCtgL" + str(extLine) + "/flagBatch"])[0].value #Numero del batch a ejecutarse
+		
+	queryProd = "Select * from galProduction where moId = ? and indexs = ? and type = ?"
+	dataProd = system.db.runPrepQuery(queryProd,[moId,index,type])
+	idNew = dataProd.getValueAt(0,"id")
+	logger.info("Ctg Order New: " + str(idNew))
+	
+	date = system.date.now()
+	
+	#Traigo la informacion de las tablas de acuero al Id seleccionado
+	queryProd = "Select * from galProduction where id = ? and type = ?"
+	dataProd = system.db.runPrepQuery(queryProd,[id,type])
+	
+	queryUpdate = "Update galProCurCoa set  cmdStsFlag = ?, status= ?, dateEndBatch = ? where id = ?"
+	system.db.runPrepUpdate(queryUpdate,[newValue.value,status,date,id])
+	
+	queryProdC = "Select * from galProCurCoa where id = ?"
+	dataProdC = system.db.runPrepQuery(queryProdC,[id])
+	
+	batchSeqNo = dataProdC[0]["batchSeqNo"]
+	queryUpdate = "Insert into galProSeqCoa (id,date,cmdStsFlag ,batchSeqNo) values (?,?,?,?) "
+	system.db.runPrepUpdate(queryUpdate,[id,date,newValue.value, batchSeqNo])	
+	
+	user = 'gateway'
+	shared.pcsMentaComms.actionWorkOrder(id, 'Completed', user)
+	shared.pcsMentaComms.actionProductionOrder(id, 'Completed', user)
+	
+	system.tag.writeAsync(["process/extrusion/flagCtg/flagDnCtgL" + ctgLine + "/flag"],[0]) #Cambio el estado del tag Flag
+	system.tag.writeAsync(["process/extrusion/flagCtg/flagDnCtgL" + ctgLine + "/flagDnM"],[0]) #Cambio el estado del tag Flag
+	system.tag.writeAsync(["process/extrusion/flagCtg/flagDnCtgL" + ctgLine + "/codId"],['']) #Cambio el estado del tag codId
+	
+	date = system.date.now()
+	dateTime = system.date.format(date, "yyyyMMddHHmmss")
+	logger.info("Finnish: The order has been closed by Auto Mode for Line " + str(extLine) + "at " + str(dateTime))
+	
+	#import xml.dom.minidom #llamo a la libreria DOM
+	#from xml.dom.minidom import parse, parseString #creo parametros para usar las funciones del DOM
+	
+	#MSGID = dataProd.getValueAt(0,"msgId")
+	#CMDSTSFLAG = str(dataProdC.getValueAt(0,"cmdStsFlag"))
+	
+	#xml = shared.fileXml.answerProduction (MSGID,CMDSTSFLAG)
+	#dom = parseString(xml)#transformo el archivo para manejarlo como xml
+	#doc = dom.childNodes #Devuelve un array con todos los nodos hijos que contiene el nodo.
+	
+	#Agrego los datos a los nodos del xml		
+	#nodos=dom.getElementsByTagName("ID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+	#nodos.nodeValue = dataProd.getValueAt(0,"bId") #le pongo el nuevo valor 
+		
+	#nodos=dom.getElementsByTagName("BatchSeqNo")[0].childNodes[0] #carga los atributos del elemento (del XML)
+	#nodos.nodeValue = dataProdC.getValueAt(0,"batchSeqNo") #le pongo el nuevo valor 
+	
+	#nodos=dom.getElementsByTagName("EquipmentID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+	#nodos.nodeValue = dataProdC.getValueAt(0,"bEquipmentId") #le pongo el nuevo valor 
+	
+	#newDoc = dom.toprettyxml(indent="", newl="", encoding="utf-8")
+						
+	#Gurdar el archivo en el directorio indicado
+	#dateTime = system.date.format(date, "yyyyMMddHHmmss")
+	#name = "prodCtg1011L6" + "_toMes" + dataProd.getValueAt(0,1) + "_CMDSTS" + str(newValue.value) + "_Start_" + str(batchSeqNo) + "_" + dateTime + ".xml"
+	#shared.fileXml.saveFile (name,newDoc)
+	
+	#Guardar el archivo en el directorio indicado para los DONE
+	#tagPath = 'process/general/address/dn'
+	#shared.fileXml.saveFileAdr (name, newDoc, tagPath)
+
+	
+		
+	#logger.info("Xml Ctg" + ctgLine + " 88CM01/02 - Dn Generado")
+	
