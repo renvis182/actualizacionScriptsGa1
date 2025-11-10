@@ -1,0 +1,63 @@
+if  newValue.value == 4:
+	database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+	tagPath = "process/extrusion/flagDinn01"
+	moId = system.tag.readBlocking([tagPath + "/flagDnDinn01/codOrder"])[0].value #Numero de la orden a ejecutarse
+	index = system.tag.readBlocking([tagPath + "/flagDnDinn01/codSubOrder"])[0].value #Numero de la orden a ejecutarse
+	BatchSeqNo = system.tag.readBlocking([tagPath + "/flagDnDinn01/flagBatch"])[0].value #Numero del batch a ejecutarse
+	type = "PS_COATING"
+	date = system.date.now()
+	
+	queryProd = "Select * from galProduction where moId = ? and indexs = ? and type = ?"
+	dataProd = system.db.runPrepQuery(queryProd,[moId,index,type])
+	logger = system.util.getLogger("SCRIPT: xmlDnL3L5Dinn01")
+	if len(dataProd) > 0:
+		id = dataProd.getValueAt(0,"id")
+	
+		queryUpdate = "Update galProCurCoa set  cmdStsFlag = ?, batchSeqNo = ?, dateEndBatch = ? where id = ?"
+		system.db.runPrepUpdate(queryUpdate,[newValue.value,BatchSeqNo,date,id])
+		
+		queryUpdate = "Insert into galProSeqCoa (id,date,cmdStsFlag ,batchSeqNo) values (?,?,?,?) "
+		system.db.runPrepUpdate(queryUpdate,[id,date,newValue.value,BatchSeqNo])	
+			
+		#Traigo la informacion de las tablas de acuero al Id seleccionado
+		queryProdC = "Select * from galProCurCoa where id = ?"
+		dataProdC = system.db.runPrepQuery(queryProdC,[id])
+		
+		import xml.dom.minidom #llamo a la libreria DOM
+		from xml.dom.minidom import parse, parseString #creo parametros para usar las funciones del DOM
+		
+		MSGID = dataProd.getValueAt(0,"msgId")
+		CMDSTSFLAG = str(dataProdC.getValueAt(0,"cmdStsFlag"))
+		
+		xml = shared.fileXml.answerProduction (MSGID,CMDSTSFLAG)
+		dom = parseString(xml)#transformo el archivo para manejarlo como xml
+		doc = dom.childNodes #Devuelve un array con todos los nodos hijos que contiene el nodo.
+		
+		#Agrego los datos a los nodos del xml		
+		nodos=dom.getElementsByTagName("ID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		nodos.nodeValue = dataProd.getValueAt(0,"bId") #le pongo el nuevo valor 
+			
+		nodos=dom.getElementsByTagName("BatchSeqNo")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		nodos.nodeValue = dataProdC.getValueAt(0,"batchSeqNo") #le pongo el nuevo valor 
+		
+		nodos=dom.getElementsByTagName("EquipmentID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		nodos.nodeValue = dataProdC.getValueAt(0,"bEquipmentId") #le pongo el nuevo valor 
+		
+		newDoc = dom.toprettyxml(indent="", newl="", encoding="utf-8")
+							
+		#Gurdar el archivo en el directorio indicado
+		dateTime = system.date.format(date, "yyyyMMddHHmmss")	
+		name = "prodDnn01"+ dataProd.getValueAt(0,'moId') + "cmd" + str(newValue.value) + str(BatchSeqNo) + dateTime + ".xml"
+		shared.fileXml.saveFile (name,newDoc)
+		
+		#Guardar el archivo en el directorio respaldo para los DONE
+		tagPath1 = 'process/general/address/dn'
+		shared.fileXml.saveFileAdr (name, newDoc, tagPath1)
+	
+		user = 'gateway'
+		shared.pcsMentaComms.actionWorkOrder(id, 'Completed', user)
+		shared.pcsMentaComms.actionProductionOrder(id, 'Completed', user)
+		
+		system.tag.writeAsync([tagPath + "/flagDnDinn01/flag"],[0]) #Cambio el estado del tag Flag
+	else:
+		logger.info("Sin informacion.")
