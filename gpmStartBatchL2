@@ -1,0 +1,167 @@
+#---Script para descargar data del batch al PLC---
+if  newValue.value == 1:
+	system.tag.writeBlocking([  "process/dosing/ordersAdmin/L2/gpmStartBatchL2"],[0])
+	logger = system.util.getLogger("Start Batch Fase A")
+	#Data del siquiente batch del buffer de producción
+	query = "Select * from galProdBatchBuffer02"
+	data = system.db.runPrepQuery(query)
+	orderId = data.getValueAt(0,1) #order ID
+	orderIndex = data.getValueAt(0,2) #order ID
+	nrBatch = data.getValueAt(0,4) #order ID
+	batchSeqNo = data.getValueAt(0,5) - 1 #order ID
+	destination = data.getValueAt(0,7)
+	gpmLine = data.getValueAt(0,6)
+	type = "PS_MIXING"
+	
+	#Validación data proceso para el arranque
+	validation=1
+	#validation = project.ordersAdmin.validationL2(gpmLine)
+	if validation == 1:
+		#Data de la orden de producción
+		query = "Select * from galProduction where moId = ? and indexs = ?"
+		dataProd = system.db.runPrepQuery(query,[orderId,orderIndex])
+		id = dataProd.getValueAt(0,0) #order ID
+		logger.info("El id de la orden es: " + id)
+	
+		#Toma la linea de extrusión de destino
+		if destination == 'EXTLINE01':
+			ext = 1
+		elif destination == 'EXTLINE02':
+			ext = 2
+		elif destination == 'EXTLINE05':
+			ext = 5		#Micropellet
+		#elif destination == 'EXTLINE06':
+			#ext = 6		#Micropellet
+		elif destination == 'EXTLINE07':
+			ext = 7
+		#elif destination == 'EXTLINE08':
+			#ext = 8
+		elif destination == 'EXTLINE09':
+			ext = 9
+		elif destination == 'EXTLINE10':
+			ext = 10
+		#elif destination == 'EXTLINE11':
+			#ext = 11
+				
+		#Toma la linea de molienda a la que pertenece
+		if gpmLine == 'GPMLINE01':
+			gpm = 1
+		elif gpmLine == 'GPMLINE02':
+			gpm = 2
+		elif gpmLine == 'GPMLINE01/02':
+			gpm = 3
+		elif gpmLine == 'GPMLINE05':
+			gpm = 5		#Gpm Micropellet
+		#elif gpmLine == 'GPMLINE06':
+			#gpm = 6		#Gpm Micropellet
+		elif gpmLine == 'GPMLINE07':
+			gpm = 7		
+		#elif gpmLine == 'GPMLINE08':
+			#gpm = 8	
+		elif gpmLine == 'GPMLINE09':
+			gpm = 9	
+		elif gpmLine == 'GPMLINE10':
+			gpm = 10	
+		#elif gpmLine == 'GPMLINE11':
+			#gpm = 11
+			
+		liq=0
+		
+		#Tags descarga del plc	
+		tag = "process/dosing/wrhDsg01"
+		tagModId = tag + "/codOrder"
+		tagIndex = tag + "/codSubOrder"
+		tagNrBatch = tag + "/batchTotal"
+		tagBatchSeq = tag + "/batchCurrent"
+		tagExtLine = tag + "/extLine"
+		tagGpmLine = tag + "/gpmLine"
+		tagLiquid = tag + "/liquidsEnable"	
+		
+		tagPaths = [tagModId,tagIndex,tagNrBatch,tagBatchSeq,tagExtLine,tagGpmLine]	
+		tagValues = [orderId,orderIndex,nrBatch,batchSeqNo,ext,gpm]
+	
+		#Data de ingredientes de la orden
+		queryMce = "Select * from galMceBatch where id = ? and type = ? and handAddition = 0"
+		dataMce = system.db.runPrepQuery(queryMce,[id,type])
+		test = dataMce.getRowCount()	
+		logger.info("El numero de ingredientes es: " + str(test))
+		
+		#Sin adiciones manuales	
+		if dataMce.getRowCount()!= 0:	
+			for i in range (dataMce.getRowCount()):
+				seq = dataMce.getValueAt(i,4) 
+				cod = dataMce.getValueAt(i,5)
+				loc = dataMce.getValueAt(i,8)		
+				qua = dataMce.getValueAt(i,9)				
+				if loc == '95CM01'or loc== '95CM02':
+					liq = 1					
+				else:
+					liq = 0
+				queryBin = ("select unit from galSilo where siloCode = ?")
+				bintag = system.db.runPrepQuery(queryBin,[loc])			
+				ingCod = tag + "/" + bintag[0][0] + "/ingCod"
+				wgt = tag + "/" + bintag[0][0] + "/wgtRecipe"
+				tagPaths.append(wgt)
+				tagPaths.append(ingCod)
+				tagValues.append(qua)
+				tagValues.append(cod)			
+					
+		#Con adiciones manuales
+		queryMce = "Select * from galMceBatch where id = ? and type = ? and handAddition = 1"
+		dataMce = system.db.runPrepQuery(queryMce,[id,type])		
+		if dataMce.getRowCount()!= 0:
+			j = 1
+			for i in range (dataMce.getRowCount()):
+				seq = dataMce.getValueAt(i,4)
+				cod = dataMce.getValueAt(i,5)
+				loc = dataMce.getValueAt(i,8)			
+				qua = dataMce.getValueAt(i,9)					
+				if j<=9:
+					tag1 = tag + "/hndAdd0" + str(j)	
+				else:		
+					tag1 = tag + "/hndAdd" + str(j)			
+				ingCod = tag1 + "/ingCod"
+				wgt = tag1 + "/wgtRecipe"	
+				tagPaths.append(wgt)
+				tagPaths.append(ingCod)
+				tagValues.append(qua)
+				tagValues.append(cod)			
+				j = j+1					
+		if liq == 1:
+			tagPaths.append(tagLiquid)
+			tagValues.append(1)					
+		else:
+			tagPaths.append(tagLiquid)
+			tagValues.append(0)			
+		
+		system.tag.writeBlocking(tagPaths,tagValues)		
+
+		#Actualiza el usuario que realiza la operación
+		user = system.tag.readBlocking(["[System]Client/User/Username"])[0].value
+		queryUpdate = "Update galProCurMix set [user] = ? where id = ?"
+		system.db.runPrepUpdate(queryUpdate,[user,id])
+				
+		#Actualiza la orden seleccionada con flag = 2
+		if batchSeqNo > 0:
+			queryUpdate = "Update galProCurMix set flagPcs = 2 where id = ?"
+			system.db.runPrepUpdate(queryUpdate,[id])
+			
+		#Elimina el batch del buffer de produccion
+		system.db.runPrepUpdate('DELETE FROM galProdBatchBuffer02 WHERE id = 1')
+			
+		#Shifts the rows up for execution order
+		queryProdBatch = "UPDATE galProdBatchBuffer02 SET id = id-1 where id > 1"
+		system.db.runPrepUpdate(queryProdBatch)
+		#system.tag.writeBlocking([  "process/dosing/ordersAdmin/L2/gpmStartBatchL2"],[0])
+		system.tag.writeBlocking([  "gpm/gpmHmiStartOrderL1"],[1])
+		logger.info("Arranque batch: " + str(orderId) + "-" + str(orderIndex) + ". Batch: " + str(batchSeqNo))
+		query = "Select COUNT (id) from galProdBatchBuffer02"
+		bufferBatches = system.db.runScalarPrepQuery(query)
+		if bufferBatches > 0:
+			query = "Select actualBatch from galProdBatchBuffer02 where id = ?"
+			nextBatch = system.db.runScalarPrepQuery(query,[1])
+		else:
+			nextBatch = 0
+		system.tag.writeBlocking([  "process/dosing/ordersAdmin/L2/bufferActualBatchL2"],[nextBatch])
+	else:
+		system.tag.writeBlocking([  "process/dosing/ordersAdmin/L2/gpmStartBatchL2"],[0])
