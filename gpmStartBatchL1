@@ -81,8 +81,6 @@ if  newValue.value == 1:
 		tagGpmLine = tag + "/gpmLine"
 		tagLiquid = tag + "/liquidsEnable"	
 	
-		#tagPaths = [tagModId,tagIndex,tagNrBatch,tagBatchSeq,tagExtLine,tagGpmLine]	
-		#tagValues = [orderId,orderIndex,nrBatch,batchSeqNo,ext,gpm]
 		writeBlockingTags[tagModId] = orderId
 		writeBlockingTags[tagIndex] = orderIndex
 		writeBlockingTags[tagNrBatch] = nrBatch
@@ -111,10 +109,6 @@ if  newValue.value == 1:
 				bintag = system.db.runPrepQuery(queryBin,[loc])			
 				ingCod = tag + "/" + bintag[0][0] + "/ingCod"
 				wgt = tag + "/" + bintag[0][0] + "/wgtRecipe"
-				#tagPaths.append(wgt)
-				#tagPaths.append(ingCod)
-				#tagValues.append(qua)
-				#tagValues.append(cod)
 				writeBlockingTags[wgt] = qua
 				writeBlockingTags[ingCod] = cod
 				
@@ -134,24 +128,16 @@ if  newValue.value == 1:
 					tag1 = tag + "/hndAdd" + str(j)			
 				ingCod = tag1 + "/ingCod"
 				wgt = tag1 + "/wgtRecipe"	
-				#tagPaths.append(wgt)
-				#tagPaths.append(ingCod)
-				#tagValues.append(qua)
-				#tagValues.append(cod)	
 				writeBlockingTags[wgt] = qua
 				writeBlockingTags[ingCod] = cod
 				j = j+1
 		if liq == 1:
-			#tagPaths.append(tagLiquid)
-			#tagValues.append(1)		
 			value = 1
 		else:
-			#tagPaths.append(tagLiquid)
-			#tagValues.append(0)
 			value = 0
 		writeBlockingTags[tagLiquid] = value
 	
-		#system.tag.writeBlocking(tagPaths,tagValues)
+		#system.tag.writeBlocking(tagPaths,tagValues) en este momento se hubieran escrito los tagPaths
 
 		#Actualiza el usuario que realiza la operación
 		user = system.tag.readBlocking(["[System]Client/User/Username"])[0].value
@@ -170,26 +156,22 @@ if  newValue.value == 1:
 		queryProdBatch = "UPDATE galProdBatchBuffer01 SET id = id-1 where id > 1"
 		system.db.runPrepUpdate(queryProdBatch)
 	
-		### Initiating comments previous to read/write efficiency change ###	
-		#system.tag.writeBlocking(["process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
-		### Ending comments previous to read/write efficiency change ###	
-	
-		#system.tag.writeBlocking(["gpm/gpmHmiStartOrderL2"],[1])
 		writeBlockingTags["gpm/gpmHmiStartOrderL2"] = 1
 	
 		logger.info("Arranque batch: " + str(orderId) + "-" + str(orderIndex) + ". Batch: " + str(batchSeqNo))
 		query = "Select COUNT (id) from galProdBatchBuffer01"
 		bufferBatches = system.db.runScalarPrepQuery(query)
+
 		if bufferBatches > 0:
 			query = "Select actualBatch from galProdBatchBuffer01 where id = ?"
 			nextBatch = system.db.runScalarPrepQuery(query,[1])
 		else:
 			nextBatch = 0
-		#system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/bufferActualBatchL1"],[nextBatch])
 		writeBlockingTags["process/dosing/ordersAdmin/L1/bufferActualBatchL1"] = nextBatch
+
 	else:
-		#system.tag.writeBlocking([  "process/dosing/ordersAdmin/L1/gpmStartBatchL1"],[0])
 		writeBlockingTags["process/dosing/ordersAdmin/L1/gpmStartBatchL1"] = 0
+
 	if writeBlockingTags:
 		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
 	end = system.date.now()    
