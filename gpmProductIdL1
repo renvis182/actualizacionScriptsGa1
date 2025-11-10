@@ -39,7 +39,7 @@ if newValue.value == 1:
 		tagFinalMatId = tag			
 
 	writeBlockingTags[tagFinalMatId] = finalMatId
-	
 	writeBlockingTags["gpm/secondMix/43Aw01ProdFormulaIdFlag"] = 0
-if writeBlockingTags:
-	system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+
+	if writeBlockingTags:
+		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
