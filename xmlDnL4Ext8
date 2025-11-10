@@ -1,0 +1,78 @@
+if  newValue.value == 4 :
+	#Para linea dinamica
+	extLine = '8'
+	
+	#import xml.dom.minidom #llamo a la libreria DOM
+	#from xml.dom.minidom import parse, parseString #creo parametros para usar las funciones del DOM
+	
+	logger = system.util.getLogger("Gtwy_ChangeOrder")
+	logger.info("Start: Close order by Auto Mode  for Line " + str(extLine))
+	
+	database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+	moId = system.tag.readBlocking(["process/extrusion/flagExt/flagDnExtL" + extLine + "/codOrder"])[0].value #Numero de la orden a ejecutarse
+	index = system.tag.readBlocking(["process/extrusion/flagExt/flagDnExtL" + extLine + "/codSubOrder"])[0].value #Numero de la orden a ejecutarse
+	BatchSeqNo = system.tag.readBlocking(["process/extrusion/flagExt/flagDnExtL" + extLine + "/flagBatch"])[0].value #Numero del batch a ejecutarse
+	type = "PS_EXTRUSION"
+	
+	date = system.date.now()
+	queryProd = "Select * from galProduction where moId = ? and indexs = ? and type = ?"
+	dataProd = system.db.runPrepQuery(queryProd,[moId,index,type])
+	id = dataProd.getValueAt(0,"id")
+	logger.info("Ext Order: " + str(id))
+		
+	queryUpdate = "Update galProCurExt set  cmdStsFlag = ?, batchSeqNo = ?, dateEndBatch = ? where id = ? and cmdStsFlag = 3"
+	result = system.db.runPrepUpdate(queryUpdate,[newValue.value, BatchSeqNo, date, id])
+	
+	if result == 1:
+		
+		queryUpdate = "Insert into galProSeqExt (id,date,cmdStsFlag ,batchSeqNo) values (?,?,?,?)"
+		system.db.runPrepUpdate(queryUpdate,[id, date, newValue.value, BatchSeqNo])	
+			
+		#Traigo la informacion de las tablas de acuero al Id seleccionado
+		queryProdC = "Select * from galProCurExt where id = ?"
+		dataProdC = system.db.runPrepQuery(queryProdC,[id])
+		
+		#MSGID = dataProd.getValueAt(0,"msgId")
+		#CMDSTSFLAG = str(dataProdC.getValueAt(0,"cmdStsFlag"))
+		
+		#xml = shared.fileXml.answerProductionFinished (MSGID,CMDSTSFLAG)
+		#dom = parseString(xml)#transformo el archivo para manejarlo como xml
+		#doc = dom.childNodes #Devuelve un array con todos los nodos hijos que contiene el nodo.
+		
+		#Agrego los datos a los nodos del xml		
+		#nodos=dom.getElementsByTagName("ID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		#nodos.nodeValue = dataProd.getValueAt(0,"bId") #le pongo el nuevo valor 
+			
+		#nodos=dom.getElementsByTagName("BatchSeqNo")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		#nodos.nodeValue = dataProdC.getValueAt(0,"batchSeqNo") #le pongo el nuevo valor 
+		
+		#nodos=dom.getElementsByTagName("Type")[0].childNodes[0]
+		#nodos.nodeValue = type
+		
+		#nodos=dom.getElementsByTagName("EquipmentID")[0].childNodes[0] #carga los atributos del elemento (del XML)
+		#nodos.nodeValue = dataProdC.getValueAt(0,"bEquipmentId") #le pongo el nuevo valor 
+		
+		#newDoc = dom.toprettyxml(indent="", newl="", encoding="utf-8")
+							
+		#Gurdar el archivo en el directorio MES indicado
+		#dateTime = system.date.format(date, "yyyyMMddHHmmss")
+		#name = "prodExt8L4" + "_toMes" + dataProdC.getValueAt(0,1) + "_CMDSTS" + str(newValue.value) + "_Finish_" + str(BatchSeqNo) + "_" + dateTime + ".xml"
+		#shared.fileXml.saveFile (name,newDoc) #To MES machine KEEP
+		
+		#Guardar el archivo en el directorio resplado para los DONE
+		#tagPath = 'process/general/address/dn'
+		#shared.fileXml.saveFileAdr (name, newDoc, tagPath)
+		
+
+		#logger.info("Xml Ext" + extLine + " 51AW01/02 - Fin Generado " + moId)
+		
+		#Cambiar de estado de la orden en nuevas tablas del sistema Menta
+	user = 'gateway'
+	shared.pcsMentaComms.actionWorkOrder(id, 'Completed', user)		
+		
+	system.tag.writeAsync(["process/extrusion/flagExt/flagDnExtL" + extLine + "/flag"],[0]) #Cambio el estado del tag Flag
+	
+	date = system.date.now()
+	dateTime = system.date.format(date, "yyyyMMddHHmmss")
+	logger.info("Finnish: The order has been closed by Auto Mode for Line " + str(extLine) + " at " + str(dateTime))
+	
