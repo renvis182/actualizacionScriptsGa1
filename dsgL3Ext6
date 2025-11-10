@@ -1,28 +1,37 @@
 if newValue.value == 1:
-	
+	start = system.date.now()
+	logger = system.util.getLogger("executing_dsgL3Ext6")
+
 	### Definicion de datos principales
-	dbExt = system.tag.readBlocking(["[default]process/general/extL3/database"])[0].value
 	numExt = 6
 	tagPathCodOrder = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/codOrder"
 	tagPathSubOrder = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/codSubOrder"
 	tagPathBatch = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/flagBatch"
 	tagPathFlag = "[default]process/extrusion/flagExt/flagDsgExtL3Ext" + str(numExt) + "/flag"
 	
-	codOrderTag = system.tag.readBlocking([tagPathCodOrder])[0].value
-	codSubOrderTag =  system.tag.readBlocking([tagPathSubOrder])[0].value
-	runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL6/54Aw01Wgt"])[0].value
-	#runExt = system.tag.readBlocking(["[default]gpm02/fineHandling/extruTechL5/53Aw01Wgt"])[0].value
-	
-	logger = system.util.getLogger("L3Ex6")
+	readBlockingTags = {
+			"dbExt":"[default]process/general/extL3/database",
+			"codOrderTag":tagPathCodOrder,
+			"codSubOrderTag":tagPathSubOrder,
+			"runExt":"[default]gpm02/fineHandling/extruTechL6/54Aw01Wgt",
+			"batchSeqNo":tagPathBatch
+		}
+	tagPaths = list(readBlockingTags.values())
+	readingTags = system.tag.readBlocking(tagPaths)
+	tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
+	dbExt = tagValues["dbExt"]
+	codOrderTag = tagValues["codOrderTag"]
+	codSubOrderTag = tagValues["codSubOrderTag"]
+	runExt = tagValues["runExt"]
 	
 	if  runExt > 0:
-			
+		writeBlockingTags = {}
 		workOrderPcs = str(codOrderTag) + '_00' + str(codSubOrderTag)
 		query = "SELECT * FROM Campaign WHERE WorkOrder = ? AND StatusID = 5 ORDER BY CampaignID DESC"
 		workOrderExt = system.db.runPrepQuery(query, [workOrderPcs],dbExt)		
 		
 		if len(workOrderExt) == 0: 
-			
 			query = "SELECT * FROM Campaign WHERE StatusID = 5 ORDER BY CampaignID DESC"
 			workOrderExt = system.db.runQuery(query,dbExt)	
 			
@@ -33,11 +42,12 @@ if newValue.value == 1:
 				
 				#Comparacion de cambio de orden
 				if  codOrderTag != codOrder or int(codSubOrderTag) != codSubOrder:
-					
-					system.tag.writeBlocking([tagPathCodOrder, tagPathSubOrder,tagPathBatch], [codOrder, codSubOrder,0])		
+					writeBlockingTags[tagPathCodOrder] = codOrder
+					writeBlockingTags[tagPathSubOrder] = codSubOrder
+					writeBlockingTags[tagPathBatch] = 0
 					workOrder = workOrderExt[0]['workOrder']
 			else :
-				system.tag.writeBlocking([tagPathBatch], [-1])
+				writeBlockingTags[tagPathBatch] = -1
 				workOrder = workOrderExt[0]['workOrder']
 				codOrder = workOrder[0:workOrder.find('_')]
 				codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
@@ -47,10 +57,9 @@ if newValue.value == 1:
 			codSubOrder = int(workOrder[workOrder.find('_')+1: len(workOrder)])
 						
 		#Consulta de consumos en North
-		batchSeqNo = system.tag.readBlocking([tagPathBatch])[0].value + 1
+		batchSeqNo = tagValues["batchSeqNo"] + 1
 		
 		if batchSeqNo != -1:
-			
 			line = [6]
 			types = [["PS_EXTRUSION", "galProCurExt", "galProSeqExt", "galConExt", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02')", ['90CM01','90CM02']], ["PS_COATING", "galProCurCoa", "galProSeqCoa", "galConCoa", " AND (mceLocationId = '90CM01' or mceLocationId = '90CM02' or mceLocationId = '95CM04')", ['90CM01','90CM02','95CM04']]]
 			queryDsg = """SELECT
@@ -206,4 +215,10 @@ if newValue.value == 1:
  										
 				 						break
 			
-			system.tag.writeBlocking([tagPathFlag, tagPathBatch], [3, batchSeqNo])
+			writeBlockingTags[tagPathFlag] = 3
+			writeBlockingTags[tagPathBatch] = batchSeqNo
+		if writeBlockingTags:
+			system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
+	end = system.date.now()    
+	elapsed = system.date.millisBetween(start, end)    
+	logger.info("scripTiming_tagChange_dsgL3Ext6: " + str(elapsed) + "ms")

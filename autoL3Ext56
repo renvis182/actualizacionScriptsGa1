@@ -4,15 +4,16 @@ if newValue.value == 1:
 	logger.info ('Ejecucion Script Arranque Automatico ExtrusorL3')
 	
 	readBlockingTags = {
-			"order53CM01":"gpm02/secondMix/53CM01/codOrder",
-			"subOrder53CM01":"gpm02/secondMix/53CM01/CodSubOrder",
-			"order54CM01":"gpm02/secondMix/54CM01/codOrder",
-			"subOrder54CM01":"gpm02/secondMix/54CM01/codSubOrder",
-			"database":"process/general/database"
-			}
-	tagPaths = list(readBlockingTags.values())
+	    "order53CM01":"gpm02/secondMix/53CM01/codOrder",
+	    "subOrder53CM01":"gpm02/secondMix/53CM01/CodSubOrder",
+	    "order54CM01":"gpm02/secondMix/54CM01/codOrder",
+	    "subOrder54CM01":"gpm02/secondMix/54CM01/codSubOrder",
+	    "database":"[default]process/general/database" 
+	}
+	readKeys  = ["order53CM01","subOrder53CM01","order54CM01","subOrder54CM01","database"]
+	tagPaths  = [readBlockingTags[i] for i in readKeys]
 	readingTags = system.tag.readBlocking(tagPaths)
-	tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+	tagValues = dict(zip(readKeys, [r.value for r in readingTags]))
 	
 	order53CM01 = tagValues["order53CM01"]
 	subOrder53CM01 = tagValues["subOrder53CM01"]
@@ -76,6 +77,7 @@ if newValue.value == 1:
 		id = dataOrder[0]['id']
 		#database = system.tag.readBlocking(['procees/general/database'])[0].value
 		type = 'PS_ EXTRUSION'
+		writeBlockingTags = {}
 		
 		#ACTUALIZA EL USUARIO DE TABLA galProdCurExt TOMANDO EL id DE LA ORDEN
 		user = 'ignGtwy'
@@ -116,14 +118,24 @@ if newValue.value == 1:
 				if lineE == 0 or lineM == 0 or lineC == 0:
 					logger.info('NO EXISTE NINGUNA ORDEN DE TRABAJO, NO SE PUEDE ARRANCAR ORDEN [MIXING: '+ lineM +', EXTRUSION: '+ lineE +', COATING: '+ lineC +']')
 				else:
-					system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codOrder'],[moId])
-					system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codSubOrder'],[str(index) + ',' + '#0'])
-					system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flagBatch'],[batchSeq])
-					system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flag'],[2])
-					system.tag.writeAsync(['[default]process/extrusion/flagL3/flagScheExt5'], [1])
-					system.tag.writeAsync(['[default]process/extrusion/flagL3/flagScheExt6Temp'],[1])
+					#system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codOrder'],[moId])
+					#system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/codSubOrder'],[str(index) + ',' + '#0'])
+					#system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flagBatch'],[batchSeq])
+					#system.tag.writeAsync(['process/extrusion/flagExt/flagStartExtL3Ext65/flag'],[2])
+					#system.tag.writeAsync(['[default]process/extrusion/flagL3/flagScheExt5'], [1])
+					#system.tag.writeAsync(['[default]process/extrusion/flagL3/flagScheExt6Temp'],[1])
+					writeBlockingTags = {
+							"process/extrusion/flagExt/flagStartExtL3Ext65/codOrder":moId,
+							"process/extrusion/flagExt/flagStartExtL3Ext65/codSubOrder":str(index) + ',' + '#0',
+							"process/extrusion/flagExt/flagStartExtL3Ext65/flagBatch":batchSeq,
+							"process/extrusion/flagExt/flagStartExtL3Ext65/flag":2,
+							"[default]l3process/extrusion/flagL3/flagScheExt5":1,
+							"[default]process/extrusion/flagL3/flagScheExt6Temp":1
+						}
 					shared.pcsMentaComms.actionWorkOrder(id,'In Progress',user)
 					logger.info('SI EXISTEN ORDENES DE TRABAJO GENERADA POR MES')
+				if writeBlockingTags:
+						system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))		
 			else:
 				logger.info('NO EXISTEN ORDEN DE PRODUCCION GENERADA POR MES, NO SE PUEDE ARRANCAR ORDEN')
 		else:

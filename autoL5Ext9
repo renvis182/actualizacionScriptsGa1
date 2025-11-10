@@ -17,21 +17,53 @@ if newValue.value == 1:
 	result = system.tag.writeBlocking(tagWrite, tagValue)
 	
 	#ORDENES OPEN AUTO 
-	order57CM01=system.tag.readBlocking(["extrusion/productionLine9/extruder1/57CM01/codOrder"])[0].value
-	subOrder57CM01=system.tag.readBlocking(["extrusion/productionLine9/extruder1/57CM01/codSubOrder"])[0].value
+	readBlockingTags = {
+		"order57CM01":"extrusion/productionLine9/extruder1/57CM01/codOrder",
+		"subOrder57CM01":"extrusion/productionLine9/extruder1/57CM01/codSubOrder",
+		"database":"process/general/database",
+		"user":"[System]Client/User/Username",
+		"tagOrd1Cond1":"extrusion/productionLine9/extruder1/57CM01/codOrder",
+		"tagSubOrd1Cond1":"extrusion/productionLine9/extruder1/57CM01/codSubOrder",
+	
+		"tagOrd1Cond2":"extrusion/productionLine7/extruder1/55CM01/codOrder",
+		"tagSubOrd1Cond2":"extrusion/productionLine7/extruder1/55CM01/codSubOrder",
+		"tagOrd2Cond2":"extrusion/productionLine7/extruder1/55CM01/codOrder",
+		"tagSubOrd2Cond2":"extrusion/productionLine7/extruder1/55CM01/codSubOrder",
+	
+		"tagAutoManCond1":"extrusion/productionLine9/57/autoMan",
+		"tagStartedCond1":"extrusion/productionLine9/57/started",
+		"tagAutoManCond2":"extrusion/productionLine7/55/autoMan",
+		"tagStartedCond2":"extrusion/productionLine7/55/started"
+	}
+
+	readKeys = [
+		"order57CM01", "subOrder57CM01",
+		"database", "user",
+		"tagOrd1Cond1", "tagSubOrd1Cond1",
+		"tagOrd1Cond2", "tagSubOrd1Cond2",
+		"tagOrd2Cond2", "tagSubOrd2Cond2",
+		"tagAutoManCond1", "tagStartedCond1",
+		"tagAutoManCond2", "tagStartedCond2"
+	]
+
+	tagPaths = [readBlockingTags[i] for i in readKeys]
+	readingTags = system.tag.readBlocking(tagPaths)
+	tagValues = dict(zip(readKeys, [r.value for r in readingTags]))
+
+	order57CM01 = tagValues["order57CM01"]
+	subOrder57CM01 = tagValues["subOrder57CM01"]
 	queryOrderL9="SELECT * FROM galProduction a INNER JOIN  galProCurExt b ON a.id = b.id where a.type = 'PS_EXTRUSION' and b.cmdStsFlag = 1 and a.moId like '%' + ? +'%' and a.indexs = ? "
-	
 	dataOrder = system.db.runPrepQuery(queryOrderL9,[order57CM01,subOrder57CM01])
-	
+
 	if len(dataOrder) >0:
 		id = dataOrder[0]['id']
-		database = system.tag.readBlocking(["process/general/database"])[0].value #Base de Datos
+		database = tagValues["database"]
 		type = "PS_EXTRUSION"
-		
-		user = system.tag.readBlocking(["[System]Client/User/Username"])[0].value
+		user = tagValues["user"]
 		queryUpdate = "Update galProCurExt set [user] = ? where id  = ?"
 		system.db.runPrepUpdate(queryUpdate,[user,id])
-		
+		writeBlockingTags = {}
+	
 		moId = dataOrder.getValueAt(0,'moId')
 		index = dataOrder.getValueAt(0,'indexs')
 		nrBatch = dataOrder.getValueAt(0,'nrOffBatches')
@@ -41,45 +73,19 @@ if newValue.value == 1:
 		finalMatId = dataOrder.getValueAt(0, 'finalMatId')
 		#Linea extrusión
 		dsg = int(equipmentID[-2:])
-		#if dsg == 1 :	COMENTADO 20231011
-		#	tagOrd1 = 'extrusion/productionLine1/extruder1/51CM01/codOrder'
-		#	tagSubOrd1 = 'extrusion/productionLine1/extruder1/51CM01/codSubOrder'
-		#	tagOrd2 = 'extrusion/productionLine1/extruder1/51CM02/codOrder'
-		#	tagSubOrd2 = 'extrusion/productionLine1/extruder1/51CM02/codSubOrder'
-		#elif dsg == 2 :
-		#	tagOrd1 = 'extrusion/productionLine2/extruder3/52CM01/codOrder'
-		#	tagSubOrd1 = 'extrusion/productionLine2/extruder3/52CM01/codSubOrder'
-		#	tagOrd2 = 'extrusion/productionLine2/extruder3/52CM02/codOrder'
-		#	tagSubOrd2 = 'extrusion/productionLine2/extruder3/52CM02/codSubOrder'
+		
 		if dsg == 9 :
-			tagOrd1 = 'extrusion/productionLine9/extruder1/57CM01/codOrder'
-			tagSubOrd1 = 'extrusion/productionLine9/extruder1/57CM01/codSubOrder'
-			
-		#elif dsg == 10 :
-		#	tagOrd1 = 'extrusion/productionLine10/extruder1/58CM02/codOrder'
-		#	tagSubOrd1 = 'extrusion/productionLine10/extruder1/58CM02/codSubOrder'
-		#	tagOrd2 = 'extrusion/productionLine10/extruder1/58CM02/codOrder'
-		#	tagSubOrd2 = 'extrusion/productionLine10/extruder1/58CM02/codSubOrder'
-		#EMPIEZA ANADIDO 06 FEB 2023
-		#elif dsg == 11 :
-		#	tagOrd1 = 'extrusion/productionLine11/extruder1/58CM01/codOrder'
-		#	tagSubOrd1 = 'extrusion/productionLine11/extruder1/58CM01/codSubOrder'
-		#	tagOrd2 = 'extrusion/productionLine11/extruder1/58CM02/codOrder'
-		#	tagSubOrd2 = 'extrusion/productionLine11/extruder1/58CM01/codSubOrder'
-		#TERMINA ANADIDO 06 FEB 2023	
+			tagOrd1 = tagValues["tagOrd1Cond1"]
+			tagSubOrd1 = tagValues["tagSubOrd1Cond1"]
 		else:
-			tagOrd1 = 'extrusion/productionLine7/extruder1/55CM01/codOrder'
-			tagSubOrd1 = 'extrusion/productionLine7/extruder1/55CM01/codSubOrder'
-			tagOrd2 = 'extrusion/productionLine7/extruder1/55CM01/codOrder'
-			tagSubOrd2 = 'extrusion/productionLine7/extruder1/55CM01/codSubOrder'
-			
-		
-		codOrdGpm = system.tag.readBlocking([tagOrd1])[0].value
-		codSubOrdGpm = system.tag.readBlocking([tagSubOrd1])[0].value
-		
-	
+			tagOrd1 = tagValues["tagOrd1Cond2"]
+			tagSubOrd1 = tagValues["tagSubOrd1Cond2"]
+			tagOrd2 = tagValues["tagOrd2Cond2"]
+			tagSubOrd2 = tagValues["tagSubOrd2Cond2"]
+		codOrdGpm = tagOrd1
+		codSubOrdGpm = tagSubOrd1
+
 		if (moId == codOrdGpm):
-		
 			tag = "process/extrusion/wrhPL"+str(dsg)+"Ext"
 			tagId = tag + "/codOrderId"
 			tagModId = tag + "/codOrder"
@@ -88,28 +94,26 @@ if newValue.value == 1:
 			tagBatchSeq = tag + "/batchCurrent"
 			tagStart = tag + "/start"
 			tagFinalMatId = tag + 'FinalMatId'
-					
-			system.tag.writeAsync([tagId],[id])
-			system.tag.writeAsync([tagModId],[moId])
-			system.tag.writeAsync([tagIndex],[index])	
-			system.tag.writeAsync([tagNrBatch],[nrBatch])
-			system.tag.writeAsync([tagBatchSeq],[batchSeq])
-			system.tag.writeAsync([tagFinalMatId],[finalMatId])
-			
+				
+			writeBlockingTags = {
+				tagId:id,
+				tagModId:moId,
+				tagIndex:index,
+				tagNrBatch:nrBatch,
+				tagBatchSeq:batchSeq,
+				tagFinalMatId:finalMatId
+			}
+		
 			queryMce = "Select * from galMceBatch where id = ? and type = ?"
 			dataMce = system.db.runPrepQuery(queryMce,[id,type])
-			
+		
 			#Cargar los ingredientes para la receta	
 			for j in range (dataMce.getRowCount()):
 				seq = dataMce.getValueAt(j,'mceSeq')
 				cod = dataMce.getValueAt(j,'mceMaterialDefinitionId')
 				loc = dataMce.getValueAt(j,'mceLocationId')			
 				qua = dataMce.getValueAt(j,'mceQuantity')
-				
-				#Cargar los ingredientes en los codigos de unidad	
-				#queryBin = ("select unit from galSilo where siloCode = ?")
-				#bintag = system.db.runPrepQuery(queryBin,[loc])
-				
+	
 				# Asignacion Manual Bines Dosificacion
 				if loc == '90CM01' :
 					bintag = 'binLiq01'
@@ -120,7 +124,7 @@ if newValue.value == 1:
 				elif loc == '95CM01' :
 					bintag = 'binLiq04'
 				elif loc == 'AGUA' :
-					bintag = 'binLiq05'		#AGUA	
+					bintag = 'binLiq05'			
 				elif loc == '95CM04' :
 					bintag = 'binLiq06'
 				elif loc == '95CM05' :
@@ -130,68 +134,37 @@ if newValue.value == 1:
 				else:
 					bintag = 'binLiq09'
 				
-				# Exite un código de Bin válido para el producto
-				#if bintag.getRowCount() != 0:
 				# Crear los paths para cargar los datos
 				ingCod = tag + "/" + bintag + "/ingCod"
 				wgt = tag + "/" + bintag + "/wgtRecipe"
 				# Escribir los valores en los tags
-				system.tag.writeAsync([wgt],[qua])
-				system.tag.writeAsync([ingCod],[cod])
-		
+				writeBlockingTags[wgt] = qua
+				writeBlockingTags[ingCod] = cod
+	
 			# Cargo los parametros de la receta			
 			queryParam = "Select name, value from galBatchParam where id = ? and type = ? and name like 'Ex%' ORDER BY id DESC"
 			dataParam = system.db.runPrepQuery(queryParam,[id,type])
-		
+	
 			for i in range (dataParam.getRowCount()):	
 				name = dataParam.getValueAt(i,0)
 				value = dataParam.getValueAt(i,1)
-			
 				sp = tag + "/extSp"  + "/sp" + name[-2:]
-				#system.tag.writeAsync([sp],[value])
-		
-					
-			#system.tag.writeAsync([tagStart],[1])
-			# Reportar inicio de Secuencia en Asistido Manual
-			
-			#if dsg == 1 : 	COMENTADO 20231011
-			#	tagAutoMan = 'extrusion/productionLine1/51/autoMan'
-			#	tagStarted = 'extrusion/productionLine1/51/started'
-			#elif dsg == 2 : 
-			#	tagAutoMan = 'extrusion/productionLine2/52/autoMan'
-			#	tagStarted = 'extrusion/productionLine2/52/started'
+	
 			if dsg == 9 : 
-				tagAutoMan = 'extrusion/productionLine9/57/autoMan'
-				tagStarted = 'extrusion/productionLine9/57/started'
-			#elif dsg == 10 : 
-			#	tagAutoMan = 'extrusion/productionLine10/58/autoMan'
-			#	tagStarted = 'extrusion/productionLine10/58/started'
-				
-		#EMPIEZA ANADIDO 06 FEB 2023
-			#elif dsg == 11 : 
-			#	tagAutoMan = 'extrusion/productionLine11/58/autoMan'
-			#	tagStarted = 'extrusion/productionLine11/58/started'
-		#TERMINA ANADIDO 06 FEB 2023
+				tagAutoMan = tagValues["tagAutoManCond1"]
+				tagStarted = tagValues["tagStartedCond1"]
 			else:
-				tagAutoMan = 'extrusion/productionLine7/55/autoMan'
-				tagStarted = 'extrusion/productionLine7/55/started'
-				
-			autoMan = system.tag.readBlocking([tagAutoMan])[0].value
-			started = system.tag.readBlocking([tagStarted])[0].value
-	#		if (not autoMan) or (autoMan and not started):
-				
-	#			if dsg == 1:
-										
-	#				tagStart = 'extrusion/productionLine' + str(dsg) + '/extruder1/hmiStartExtOrderProduction'
-	#			elif dsg == 2 : 
-						
-	#				tagStart = 'extrusion/productionLine' + str(dsg) + '/extruder3/hmiStartExtOrderProduction'
-	#			else:
-	#				tagStart = 'extrusion/productionLine' + str(dsg) + '/extruder1/hmiStartExtOrderProduction'
-	#			system.tag.writeAsync([tagStart],[1])
-	#			queryUpdate = 'UPDATE galProCurExt SET cmdStsFlag = 2 WHERE id = ?'
-	#			system.db.runPrepUpdate(queryUpdate, [id])
-		system.tag.writeBlocking('[default]extrusion/productionLine9/extL9FlagScriptDone', [1])		
+				#tagAutoMan = 'extrusion/productionLine7/55/autoMan'
+				#tagStarted = 'extrusion/productionLine7/55/started'
+				tagAutoMan = tagValues["tagAutoManCond2"]
+				tagStarted = tagValues["tagStartedCond2"]
+			autoMan = tagAutoMan
+			started = tagStarted
+	
+		writeBlockingTags["[default]extrusion/productionLine9/extL9FlagScriptDone"] = 1
+
+	if writeBlockingTags:
+		system.tag.writeBlocking(list(writeBlockingTags.keys()), list(writeBlockingTags.values()))
 	end = system.date.now()    
 	elapsed = system.date.millisBetween(start, end)    
 	logger.info("scripTiming_tagChange_autoL5Ext9: " + str(elapsed) + "ms")

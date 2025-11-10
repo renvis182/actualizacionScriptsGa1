@@ -10,30 +10,30 @@ if newValue.value == 1:
     #logger.info( u""+changeVlvTag)
 
     #Read tag that contains all the necessary data
-    batchCrossData = system.tag.readBlocking(['[default]reports/batchCrossData'])[0].value #Returns a dictionary
+    batchCrossData = system.tag.readBlocking(['[default]reports/batchCrossData'])[0].value #Returns a dictionary	
     #Read "extLine" destination of basics units
     basicsUnits = batchCrossData['basicUnit']
     pathExtLineMix1 = basicsUnits[0]["extLine"] #Returns a path
     pathExtLineMix2 = basicsUnits[1]["extLine"]
-    #With "extLine" you know which route should be active
-    extLineMix1 = system.tag.readBlocking([ pathExtLineMix1 ])[0].value #Returns an integer
-    extLineMix2 = system.tag.readBlocking([ pathExtLineMix2 ])[0].value
 
-    #For test in script console -----------------------------------
-    #pathAux = "[default]gpm/secondMix/43GL12QM02/zso"
-    #changeVlvTag = "44GL12QM05"
-    #extLineMix1 = 7 #For TEST
-    #extLineMix2 = 8	#For TEST
-    #End test ------------------------------------
+    readBlockingTags = {
+        "extLineMix1":pathExtLineMix1,
+        "extLineMix2":pathExtLineMix2
+    }
+    tagPaths = list(readBlockingTags.values())
+    readingTags = system.tag.readBlocking(tagPaths)
+    tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
+    #With "extLine" you know which route should be active
+    extLineMix1 = tagValues["extLineMix1"]
+    extLineMix2 = tagValues["extLineMix2"]
 
     routes = batchCrossData['routes'] #Get dictionary array of routes
     equipment = batchCrossData['equipment'] #Get dictionary array of equipment
     valves = batchCrossData['valves'] #Get dictionary array of valves
-    #print "Todas las rutas:"
-    #print routes
-    #print "--------------------------------------------------------------------"
 
     #FUNCTIONS
+    ################# Funcion 1 ################
     #Check valve and equipment at one step of the route
     def reviewValveActive(valveTag, machineTag, dest, equipment, valves):
         import system
@@ -49,7 +49,7 @@ if newValue.value == 1:
                     pathStOpen = valve['stOpen']
                     stOpen = system.tag.readBlocking([ pathStOpen ])[0].value #Returns a boolean
                     break
-            
+        
         #Find the equipment to which the valve belongs
         foundE = False
         for machine in equipment:
@@ -84,7 +84,7 @@ if newValue.value == 1:
         else:
             return {'active': False, 'manual': False}
 
-    #Report to DB
+    ################ Funcion 2 - Report to DB #################
     def reportEventDB(route, routesActives, valveName, eventBool):
         import system
         #Get data from defined route in control unit
@@ -112,32 +112,40 @@ if newValue.value == 1:
             event = 'APERTURA MANUAL'
         else:
             event = 'CAMBIO DESTINO'
+
+        readBlockingTags = {
+            "activeOrderCond1":"[default]gpm/secondMix/43GL09/codOrder",
+            "batchCurrentCond1":"[default]gpm/secondMix/43GL09/batchCurrent",
+            "activeOrderCond2":"[default]gpm02/secondMix/44GL09/codOrder",
+            "batchCurrentCond2":"[default]gpm02/secondMix/44GL09/batchCurrent",
+            "user":"[default]reports/userCrossBatch"
+        }
+        tagPaths = list(readBlockingTags.values())
+        readingTags = system.tag.readBlocking(tagPaths)
+        tagValues = dict(zip(readBlockingTags.keys(),[r.value for r in readingTags]))
+
         #Get data about mix from tags
         if mix == 1:
-            activeOrder = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/codOrder'])[0].value
-            batchCurrent = system.tag.readBlocking(['[default]gpm/secondMix/43GL09/batchCurrent'])[0].value
+            activeOrder = tagValues["activeOrderCond1"]
+            batchCurrent = tagValues["batchCurrentCond1"]
         else: #If is mix 2
-            activeOrder = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/codOrder'])[0].value
-            batchCurrent = system.tag.readBlocking(['[default]gpm02/secondMix/44GL09/batchCurrent'])[0].value
+            activeOrder = tagValues["activeOrderCond2"]
+            batchCurrent = tagValues["batchCurrentCond2"]
+
         #Get data about user
-        user = system.tag.readBlocking(['[default]reports/userCrossBatch'])[0].value
-        #user = "User Test" #for TEST
-        #Old
-        #query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        #args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd]
+        user = tagValues["user"]
+
         #New
-        query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        query = 'INSERT INTO galReportsBatchCross (moId, batchCurrent, lineOrigin, destOrigin, date, userAudit, event, lineEnd, destEnd, mix, valve) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         args = [str(activeOrder), batchCurrent, line, bin, str(currentDate), str(user), event, lineEnd, binEnd, mix, valveName]
         #print str(query)
         #print str(args)
-        logger = system.util.logger("galReportsBatchCross")
         logger.info(u''+str(query)+str(args))
-        #stQuery = 1
         stQuery = system.db.runPrepUpdate(query, args)
+
         if stQuery == 0: #If it was not possible to add a new record
-            logger = system.util.logger("galReportsBatchCross")
             logger.warn(u'No se pudo añadir reporte en la DB '+str(args))
-    #End Functions
+    ############## End Functions ##############
 
     routesMix = []
     for route in routes:
@@ -274,7 +282,6 @@ if newValue.value == 1:
                         if not routeActiveAux:
                             routeActive = False
                             #print "No cumple paso activo --> Válvula:", tagVlv2," Equipo:",tagEqu2," Destino:", dest2
-                            logger = system.util.logger("galReportsBatchCross")
                             logger.info(u'Mix:'+str(mix2)+" Line:"+str(line2)+" Bin:"+str(bin2)+" No cumple paso activo -> Válvula:"+str(tagVlv2)+" Equipo:"+str(tagEqu2) )
                             break
                     #If all the valves in the route are active (open and the pre-equipment on)
@@ -307,14 +314,13 @@ if newValue.value == 1:
                         routeActiveAux = reviewValveAct["active"]
                         if not routeActiveAux:
                             routeActive = False
-                            logger = system.util.logger("galReportsBatchCross")
                             logger.info(u'Mix:'+str(mix3)+" Line:"+str(line3)+" Bin:"+str(bin3)+" No cumple paso activo -> Válvula:"+str(tagVlv3)+" Equipo:"+str(tagEqu3) )
                             #print "No cumple paso activo --> Válvula:", tagVlv3," Equipo:", tagEqu3
                             break
                     if routeActive:
                         #If all the valves in the route are active (open and the pre-equipment on)
                         showRoutesActives.append(showRoute)
-                
+            
                 #print "Mix ", mix, " Rutas a mostrar en registro DB: "
                 #print showRoutesActives
                 #print "--------------------------------------------------------------------"
